@@ -420,10 +420,6 @@ impl<'a> ImageResolver<'a> {
                             Err("pixel formats are not supported".into())
                         }
                     },
-                    #[cfg(not(feature = "raster-images"))]
-                    Some(ImageFormat::Raster(_)) => {
-                        Err("raster images are not supported in this build".into())
-                    }
                     None => Err("unknown image format".into()),
                 }
             }

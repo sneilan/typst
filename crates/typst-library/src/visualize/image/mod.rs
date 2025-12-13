@@ -324,6 +324,7 @@ impl Packed<ImageElem> {
                     .within(loaded)?,
                 )
             }
+            #[cfg(feature = "pdf-images")]
             ImageFormat::Vector(VectorFormat::Pdf) => {
                 let document = match PdfDocument::new(loaded.data.clone()) {
                     Ok(doc) => doc,
@@ -374,6 +375,13 @@ impl Packed<ImageElem> {
                 };
 
                 ImageKind::Pdf(pdf_image)
+            }
+            #[cfg(not(feature = "pdf-images"))]
+            ImageFormat::Vector(VectorFormat::Pdf) => {
+                bail!(
+                    span,
+                    "PDF images are not supported in this build";
+                );
             }
         };
 
@@ -560,13 +568,16 @@ impl Debug for Image {
 #[derive(Clone, Hash)]
 pub enum ImageKind {
     /// A raster image.
+    #[cfg(feature = "raster-images")]
     Raster(RasterImage),
     /// An SVG image.
     Svg(SvgImage),
     /// A PDF image.
+    #[cfg(feature = "pdf-images")]
     Pdf(PdfImage),
 }
 
+#[cfg(feature = "raster-images")]
 impl From<RasterImage> for ImageKind {
     fn from(image: RasterImage) -> Self {
         Self::Raster(image)
@@ -583,11 +594,13 @@ impl From<SvgImage> for ImageKind {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ImageFormat {
     /// A raster graphics format.
+    #[cfg(feature = "raster-images")]
     Raster(RasterFormat),
     /// A vector graphics format.
     Vector(VectorFormat),
 }
 
+#[cfg(feature = "raster-images")]
 impl ImageFormat {
     /// Try to detect the format of an image from data.
     pub fn detect(data: &[u8]) -> Option<Self> {
@@ -595,6 +608,22 @@ impl ImageFormat {
             return Some(Self::Raster(RasterFormat::Exchange(format)));
         }
 
+        if is_svg(data) {
+            return Some(Self::Vector(VectorFormat::Svg));
+        }
+
+        if is_pdf(data) {
+            return Some(Self::Vector(VectorFormat::Pdf));
+        }
+
+        None
+    }
+}
+
+#[cfg(not(feature = "raster-images"))]
+impl ImageFormat {
+    /// Try to detect the format of an image from data.
+    pub fn detect(data: &[u8]) -> Option<Self> {
         if is_svg(data) {
             return Some(Self::Vector(VectorFormat::Svg));
         }
@@ -638,6 +667,7 @@ pub enum VectorFormat {
     Pdf,
 }
 
+#[cfg(feature = "raster-images")]
 impl<R> From<R> for ImageFormat
 where
     R: Into<RasterFormat>,
@@ -653,6 +683,7 @@ impl From<VectorFormat> for ImageFormat {
     }
 }
 
+#[cfg(feature = "raster-images")]
 cast! {
     ImageFormat,
     self => match self {
@@ -660,6 +691,15 @@ cast! {
         Self::Vector(v) => v.into_value(),
     },
     v: RasterFormat => Self::Raster(v),
+    v: VectorFormat => Self::Vector(v),
+}
+
+#[cfg(not(feature = "raster-images"))]
+cast! {
+    ImageFormat,
+    self => match self {
+        Self::Vector(v) => v.into_value(),
+    },
     v: VectorFormat => Self::Vector(v),
 }
 

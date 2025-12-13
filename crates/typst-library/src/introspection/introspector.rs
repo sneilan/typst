@@ -190,7 +190,9 @@ impl Introspector {
                 list
             }
             // Not supported here.
-            Selector::Can(_) | Selector::Regex(_) => EcoVec::new(),
+            #[cfg(feature = "regex")]
+            Selector::Regex(_) => EcoVec::new(),
+            Selector::Can(_) => EcoVec::new(),
         };
 
         self.queries.insert(hash, output.clone());

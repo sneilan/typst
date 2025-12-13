@@ -332,6 +332,7 @@ impl RawElem {
     type RawLine;
 }
 
+#[cfg(feature = "syntax-highlighting")]
 impl RawElem {
     /// The supported language names and tags.
     pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
@@ -350,6 +351,18 @@ impl RawElem {
                 ("Typst (math)", vec!["typm"]),
             ])
             .collect()
+    }
+}
+
+#[cfg(not(feature = "syntax-highlighting"))]
+impl RawElem {
+    /// The supported language names and tags (returns only Typst languages when syntax highlighting is disabled).
+    pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
+        vec![
+            ("Typst", vec!["typ"]),
+            ("Typst (code)", vec!["typc"]),
+            ("Typst (math)", vec!["typm"]),
+        ]
     }
 }
 
@@ -592,9 +605,11 @@ cast! {
 }
 
 /// A loaded syntax.
+#[cfg(feature = "syntax-highlighting")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct RawSyntax(Arc<ManuallyHash<SyntaxSet>>);
 
+#[cfg(feature = "syntax-highlighting")]
 impl RawSyntax {
     /// Load syntaxes from sources.
     fn load(
@@ -633,11 +648,13 @@ impl RawSyntax {
     }
 }
 
+#[cfg(feature = "syntax-highlighting")]
 fn format_syntax_error(error: ParseSyntaxError) -> LoadError {
     let pos = syntax_error_pos(&error);
     LoadError::new(pos, "failed to parse syntax", error)
 }
 
+#[cfg(feature = "syntax-highlighting")]
 fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
     match error {
         ParseSyntaxError::InvalidYaml(scan_error) => {
@@ -648,6 +665,22 @@ fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
             )
         }
         _ => ReportPos::None,
+    }
+}
+
+/// A stub loaded syntax type when syntax highlighting is disabled.
+#[cfg(not(feature = "syntax-highlighting"))]
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct RawSyntax;
+
+#[cfg(not(feature = "syntax-highlighting"))]
+impl RawSyntax {
+    /// Load syntaxes from sources (stub that returns empty list).
+    fn load(
+        _world: Tracked<dyn World + '_>,
+        sources: Spanned<OneOrMultiple<DataSource>>,
+    ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Vec<RawSyntax>>> {
+        Ok(Derived::new(sources.v, vec![]))
     }
 }
 
