@@ -129,3 +129,100 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sig
 - `typst-svg/src/text.rs` - Bitmap glyph rendering
 - `typst-svg/src/image.rs` - Raster image conversion
 - `typst/src/lib.rs` - HTML export support
+
+## Dependency Analysis
+
+### Remaining Dependencies (with `--no-default-features`)
+
+Total: ~399 dependencies
+
+#### Core Text/Math (Essential - Cannot Remove)
+
+| Dependency | Purpose | Notes |
+|------------|---------|-------|
+| `codex` | Math symbols and definitions | Core math support |
+| `rustybuzz` | Text shaping (HarfBuzz) | Essential for any text |
+| `ttf-parser` | Font parsing | Essential for fonts |
+| `unicode-math-class` | Math character classification | Essential for math |
+
+#### ICU/Unicode (Essential for Text Layout)
+
+| Dependency | Purpose | Notes |
+|------------|---------|-------|
+| `icu_properties` | Unicode character properties | Line breaking, accents |
+| `icu_segmenter` | Text segmentation | Line/word breaking |
+| `icu_provider*` | ICU data loading | Required by above |
+| `icu_*_data` | Compiled ICU data | Embedded in typst-assets |
+| `unicode-bidi` | Bidirectional text | RTL support |
+| `unicode-script` | Script detection | Font selection |
+| `unicode-segmentation` | Grapheme clusters | Text iteration |
+
+**Note:** ICU data is embedded via `typst_assets::icu::ICU` blob. This is used for:
+- Line breaking (linebreak.rs)
+- Canonical combining class (accent.rs)
+- Default ignorable code points (text/mod.rs)
+
+#### SVG/Graphics (Partially Essential)
+
+| Dependency | Purpose | Can Disable? |
+|------------|---------|--------------|
+| `usvg` | SVG parsing/rendering | Needed for SVG font glyphs |
+| `fontdb` | Font discovery | Used by usvg |
+| `roxmltree` | XML parsing | Used by usvg for SVG fonts |
+| `kurbo` | 2D geometry | Used by layout |
+| `flate2` | Compression | SVG decompression |
+
+**Note:** Even if SVG image import is disabled, `usvg` is needed for rendering SVG-based font glyphs (emoji, COLR fonts). The `fontdb` dependency comes from `usvg`'s text feature.
+
+#### Serialization
+
+| Dependency | Purpose | Can Disable? |
+|------------|---------|--------------|
+| `serde` | Serialization | Used everywhere |
+| `serde_json` | JSON parsing | Data loading |
+| `toml` | TOML parsing | Package manifests |
+
+**Note:** `toml` is used for parsing `typst.toml` package manifests. Could potentially be made optional if packages aren't needed.
+
+#### Data from typst-assets
+
+| Asset | Used For |
+|-------|----------|
+| `typst_assets::icu::ICU` | Main ICU data blob |
+| `typst_assets::icu::ICU_CJ_SEGMENT` | CJ segmentation (optional) |
+| `typst_assets::icc::CMYK_TO_XYZ` | ICC color profile |
+
+### Potential Further Optimizations
+
+#### 1. Make Package/TOML Support Optional
+- Disable `toml` crate if packages aren't needed
+- Would require cfg guards in `typst-eval/src/import.rs` and `typst-syntax/src/package.rs`
+- Estimated savings: 50-100KB
+
+#### 2. Make XML Data Loading Optional
+- The `xml()` function could be behind a feature flag
+- However, `roxmltree` would still be pulled by usvg
+- Net savings: minimal (only function code, not the library)
+
+#### 3. Use Minimal ICU Data
+- Create custom ICU data blob with only needed properties
+- Would require forking typst-assets
+- Estimated savings: unknown, potentially significant
+
+#### 4. Simplify usvg Usage
+- If SVG font glyphs aren't needed, could stub out usvg
+- Would break emoji and color fonts
+- Not recommended for general use
+
+### Size Breakdown Estimate
+
+Based on analysis, the remaining ~5.7 MB (1.65 MB Brotli) likely consists of:
+
+| Component | Estimated Size |
+|-----------|----------------|
+| ICU data blobs | 1-2 MB |
+| rustybuzz/text shaping | 500KB-1MB |
+| usvg/fontdb/roxmltree | 500KB-1MB |
+| codex (math symbols) | 200-500KB |
+| Core Typst code | 1-2 MB |
+| serde/JSON/misc | 200-500KB |
