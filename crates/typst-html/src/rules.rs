@@ -16,11 +16,14 @@ use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    Attribution, Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
     FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem, LinkTarget,
     ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+};
+#[cfg(feature = "bibliography")]
+use typst_library::model::{
+    BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -58,10 +61,13 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, OUTLINE_RULE);
     rules.register(Html, OUTLINE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
-    rules.register(Html, CITE_GROUP_RULE);
-    rules.register(Html, BIBLIOGRAPHY_RULE);
-    rules.register(Html, CSL_LIGHT_RULE);
-    rules.register(Html, CSL_INDENT_RULE);
+    #[cfg(feature = "bibliography")]
+    {
+        rules.register(Html, CITE_GROUP_RULE);
+        rules.register(Html, BIBLIOGRAPHY_RULE);
+        rules.register(Html, CSL_LIGHT_RULE);
+        rules.register(Html, CSL_INDENT_RULE);
+    }
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -326,9 +332,12 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
         if let Some(attribution) = attribution.as_ref() {
             realized += attribution.realize(span);
         }
-    } else if let Some(Attribution::Label(label)) = attribution {
-        realized += SpaceElem::shared().clone();
-        realized += CiteElem::new(*label).pack().spanned(span);
+    } else {
+        #[cfg(feature = "bibliography")]
+        if let Some(Attribution::Label(label)) = attribution {
+            realized += SpaceElem::shared().clone();
+            realized += CiteElem::new(*label).pack().spanned(span);
+        }
     }
 
     Ok(realized)
@@ -514,6 +523,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
+#[cfg(feature = "bibliography")]
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
     Ok(elem
         .realize(engine)?
@@ -524,6 +534,7 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // indent), but inline styles are not apprioriate because they couldn't be
 // properly overridden. For those, we currently emit classes so that a user can
 // style them with CSS, but do not emit any styles ourselves.
+#[cfg(feature = "bibliography")]
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
     let works = Works::with_bibliography(engine, elem.clone())?;
@@ -570,6 +581,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         .pack())
 };
 
+#[cfg(feature = "bibliography")]
 const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
     Ok(HtmlElem::new(tag::span)
         .with_attr(attr::class, "light")
@@ -577,6 +589,7 @@ const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
         .pack())
 };
 
+#[cfg(feature = "bibliography")]
 const CSL_INDENT_RULE: ShowFn<CslIndentElem> = |elem, _, _| {
     Ok(HtmlElem::new(tag::div)
         .with_attr(attr::class, "indent")

@@ -10,7 +10,9 @@ use ttf_parser::Tag;
 use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Regex, Smart, StyleChain};
+#[cfg(feature = "regex")]
+use typst_library::foundations::Regex;
+use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
@@ -593,8 +595,15 @@ impl<'a> ShapedText<'a> {
         } else {
             None
         };
+        #[cfg(feature = "regex")]
+        let covers_filter = |family: &&typst_library::text::FontFamily| {
+            family.covers().is_none_or(|c| c.is_match("-"))
+        };
+        #[cfg(not(feature = "regex"))]
+        let covers_filter = |_family: &&typst_library::text::FontFamily| true;
+
         let mut chain = families(base.styles)
-            .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
+            .filter(covers_filter)
             .map(|family| book.select(family.as_str(), base.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
@@ -879,12 +888,65 @@ impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
     }
 }
 
+#[cfg(feature = "regex")]
 pub fn get_font_and_covers<'a, C, F>(
     ctx: &mut C,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily>,
     mut shape_tofus: F,
 ) -> Option<(Font, Option<&'a Regex>)>
+where
+    C: SharedShapingContext<'a>,
+    F: FnMut(&mut C, &str, Font),
+{
+    // Find the next available family.
+    let world = ctx.world();
+    let book = world.book();
+    let mut selection = None;
+    let mut covers = None;
+    for family in families.by_ref() {
+        selection = book
+            .select(family.as_str(), ctx.variant())
+            .and_then(|id| world.font(id))
+            .filter(|font| !ctx.used().contains(font));
+        if selection.is_some() {
+            covers = family.covers();
+            break;
+        }
+    }
+
+    // Do font fallback if the families are exhausted and fallback is enabled.
+    if selection.is_none() && ctx.fallback() {
+        let first = ctx.first().map(Font::info);
+        selection = book
+            .select_fallback(first, ctx.variant(), text)
+            .and_then(|id| world.font(id))
+            .filter(|font| !ctx.used().contains(font));
+    }
+
+    // Extract the font id or shape notdef glyphs if we couldn't find any font.
+    let Some(font) = selection else {
+        if let Some(font) = ctx.used().first().cloned() {
+            shape_tofus(ctx, text, font);
+        }
+        return None;
+    };
+
+    // This font has been exhausted and will not be used again.
+    if covers.is_none() {
+        ctx.used().push(font.clone());
+    }
+
+    Some((font, covers))
+}
+
+#[cfg(not(feature = "regex"))]
+pub fn get_font_and_covers<'a, C, F>(
+    ctx: &mut C,
+    text: &str,
+    mut families: impl Iterator<Item = &'a FontFamily>,
+    mut shape_tofus: F,
+) -> Option<(Font, Option<&'a typst_library::foundations::Never>)>
 where
     C: SharedShapingContext<'a>,
     F: FnMut(&mut C, &str, Font),
@@ -1008,6 +1070,7 @@ fn shape_segment<'a>(
     let ltr = ctx.dir.is_positive();
 
     // Whether the character at the given offset is covered by the coverage.
+    #[cfg(feature = "regex")]
     let is_covered = |offset| {
         let end = text[offset..]
             .char_indices()
@@ -1016,6 +1079,8 @@ fn shape_segment<'a>(
             .unwrap_or(text.len());
         covers.is_none_or(|cov| cov.is_match(&text[offset..end]))
     };
+    #[cfg(not(feature = "regex"))]
+    let is_covered = |_offset| true;
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
     // the next font if necessary.

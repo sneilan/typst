@@ -16,11 +16,14 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    Attribution, Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
     FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
     OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    TableCell, TableElem, TermsElem, TitleElem,
+};
+#[cfg(feature = "bibliography")]
+use typst_library::model::{
+    BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
@@ -58,10 +61,13 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, OUTLINE_RULE);
     rules.register(Paged, OUTLINE_ENTRY_RULE);
     rules.register(Paged, REF_RULE);
-    rules.register(Paged, CITE_GROUP_RULE);
-    rules.register(Paged, BIBLIOGRAPHY_RULE);
-    rules.register(Paged, CSL_LIGHT_RULE);
-    rules.register(Paged, CSL_INDENT_RULE);
+    #[cfg(feature = "bibliography")]
+    {
+        rules.register(Paged, CITE_GROUP_RULE);
+        rules.register(Paged, BIBLIOGRAPHY_RULE);
+        rules.register(Paged, CSL_LIGHT_RULE);
+        rules.register(Paged, CSL_INDENT_RULE);
+    }
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
 
@@ -386,9 +392,12 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
         }
 
         realized = PadElem::new(realized).pack();
-    } else if let Some(Attribution::Label(label)) = attribution {
-        realized += SpaceElem::shared().clone();
-        realized += CiteElem::new(*label).pack().spanned(span);
+    } else {
+        #[cfg(feature = "bibliography")]
+        if let Some(Attribution::Label(label)) = attribution {
+            realized += SpaceElem::shared().clone();
+            realized += CiteElem::new(*label).pack().spanned(span);
+        }
     }
 
     Ok(realized)
@@ -462,8 +471,10 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
+#[cfg(feature = "bibliography")]
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
 
+#[cfg(feature = "bibliography")]
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     const COLUMN_GUTTER: Em = Em::new(0.65);
     const INDENT: Em = Em::new(1.5);
@@ -529,9 +540,11 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     Ok(Content::sequence(seq))
 };
 
+#[cfg(feature = "bibliography")]
 const CSL_LIGHT_RULE: ShowFn<CslLightElem> =
     |elem, _, _| Ok(elem.body.clone().set(TextElem::delta, WeightDelta(-100)));
 
+#[cfg(feature = "bibliography")]
 const CSL_INDENT_RULE: ShowFn<CslIndentElem> =
     |elem, _, _| Ok(PadElem::new(elem.body.clone()).pack());
 
