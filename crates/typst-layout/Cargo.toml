@@ -25,7 +25,7 @@ codex = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 either = { workspace = true }
-hypher = { workspace = true }
+hypher = { workspace = true, optional = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }
 icu_provider_adapters = { workspace = true }
@@ -43,9 +43,10 @@ unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 [features]
-default = ["bibliography", "regex"]
+default = ["bibliography", "regex", "hyphenation"]
 bibliography = ["typst-library/bibliography"]
 regex = ["typst-library/regex"]
+hyphenation = ["dep:hypher"]
 
 [lints]
 workspace = true

@@ -773,6 +773,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 }
 
 /// Generate breakpoints for hyphenations within a word.
+#[cfg(feature = "hyphenation")]
 fn hyphenations(
     p: &Preparation,
     lb: &CodePointMapDataBorrowed<LineBreak>,
@@ -815,6 +816,18 @@ fn hyphenations(
         // Call `f` for the word-internal hyphenation opportunity.
         f(offset, Breakpoint::Hyphen(l, r));
     }
+}
+
+/// No-op version when hyphenation is disabled.
+#[cfg(not(feature = "hyphenation"))]
+fn hyphenations(
+    _p: &Preparation,
+    _lb: &CodePointMapDataBorrowed<LineBreak>,
+    _offset: usize,
+    _word: &str,
+    _f: impl FnMut(usize, Breakpoint),
+) {
+    // Hyphenation is disabled
 }
 
 /// Produce linebreak opportunities for a link.
@@ -876,6 +889,7 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 }
 
 /// Whether hyphenation is enabled at the given offset.
+#[cfg(feature = "hyphenation")]
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.config.hyphenate.unwrap_or_else(|| {
         let (_, item) = p.get(offset);
@@ -889,6 +903,7 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
 }
 
 /// The text language at the given offset.
+#[cfg(feature = "hyphenation")]
 fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);

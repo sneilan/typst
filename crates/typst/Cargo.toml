@@ -28,11 +28,12 @@ ecow = { workspace = true }
 rustc-hash = { workspace = true }
 
 [features]
-default = ["bibliography", "syntax-highlighting", "regex", "html"]
+default = ["bibliography", "syntax-highlighting", "regex", "html", "hyphenation"]
 html = ["dep:typst-html"]
 bibliography = ["typst-library/bibliography", "typst-layout/bibliography", "typst-realize/bibliography", "typst-html?/bibliography"]
 syntax-highlighting = ["typst-library/syntax-highlighting"]
 regex = ["typst-library/regex", "typst-layout/regex", "typst-realize/regex"]
+hyphenation = ["typst-layout/hyphenation"]
 
 [lints]
 workspace = true
