@@ -6,19 +6,17 @@ Goal: Create a minimal WASM build of Typst for a math notebook application.
 
 | Stage | Size |
 |-------|------|
-| Raw WASM | 6.9 MB |
-| After wasm-opt -Oz | 6.2 MB |
-| Gzipped | 3.0 MB |
-| **Brotli** | **2.5 MB** |
+| Raw WASM | 5.7 MB |
+| **Brotli** | **1.65 MB** |
 
-### Previous Results (before build optimizations)
+### Previous Results
 
-| Stage | Size |
-|-------|------|
-| Raw WASM | 13 MB |
-| After wasm-opt -Os | 11 MB |
-| Gzipped | ~4.2 MB |
-| **Brotli** | **3.0 MB** |
+| Stage | Raw WASM | Brotli |
+|-------|----------|--------|
+| Before build optimizations | 13 MB | 3.0 MB |
+| After build optimizations | 6.9 MB | 2.5 MB |
+| After making HTML optional | 6.8 MB | 2.39 MB |
+| After making hyphenation optional | 5.7 MB | 1.65 MB |
 
 ## Features Made Optional (Completed)
 
@@ -32,6 +30,8 @@ Goal: Create a minimal WASM build of Typst for a math notebook application.
 | PDF images | hayro, hayro-svg, hayro-syntax | ✅ Done |
 | Data loading | csv, toml, serde_yaml | ✅ Done |
 | Lorem ipsum | lipsum | ✅ Done |
+| HTML export | typst-html | ✅ Done |
+| Hyphenation | hypher | ✅ Done (1.1 MB raw, 0.74 MB Brotli savings) |
 
 ## Build Command
 
@@ -66,17 +66,22 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sig
 
 ### Medium Impact
 
-5. **Make HTML export optional (typst-html)**
+5. ~~**Make HTML export optional (typst-html)**~~ ✅ Done
    - Not needed for math notebook (SVG only)
-   - Estimated savings: 100-300KB
+   - Actual savings: ~100KB raw, ~40KB Brotli
 
 6. **Remove XML/SVG parsing for import (xmlparser, roxmltree)**
    - Only needed if importing SVG images
-   - Estimated savings: 50-100KB
+   - Note: roxmltree is also used by usvg for SVG font glyphs
+   - Estimated savings: 50-100KB (if SVG image import is disabled)
 
 7. **Slim down math fonts**
    - Bundle only essential math glyphs
    - Use a minimal math font instead of full New Computer Modern
+
+8. ~~**Make hyphenation optional**~~ ✅ Done
+   - Not needed for math equations
+   - Actual savings: 1.1 MB raw, 0.74 MB Brotli
 
 ### Build Optimizations (Completed)
 
@@ -105,6 +110,7 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sig
 
 ### typst-layout/Cargo.toml
 - Added `regex` feature flag
+- Added `hyphenation` feature flag (makes `hypher` optional)
 
 ### typst-svg/Cargo.toml
 - Added `raster-images` feature flag
@@ -118,6 +124,8 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sig
 - `typst-library/src/foundations/func.rs` - Plugin support
 - `typst-library/src/visualize/image/mod.rs` - Raster image types
 - `typst-layout/src/inline/shaping.rs` - Font covers (regex)
+- `typst-layout/src/inline/linebreak.rs` - Hyphenation support
 - `typst-realize/src/lib.rs` - Regex show rules
 - `typst-svg/src/text.rs` - Bitmap glyph rendering
 - `typst-svg/src/image.rs` - Raster image conversion
+- `typst/src/lib.rs` - HTML export support
