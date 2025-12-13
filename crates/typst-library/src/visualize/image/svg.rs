@@ -12,6 +12,7 @@ use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_e
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::visualize::VectorFormat;
+#[cfg(feature = "raster-images")]
 use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
 use crate::visualize::image::{ImageFormat, determine_format_from_path};
 
@@ -401,6 +402,7 @@ impl<'a> ImageResolver<'a> {
                             Err("PDF documents are not supported".into())
                         }
                     },
+                    #[cfg(feature = "raster-images")]
                     Some(ImageFormat::Raster(raster_format)) => match raster_format {
                         RasterFormat::Exchange(exchange_format) => {
                             match exchange_format {
@@ -418,6 +420,10 @@ impl<'a> ImageResolver<'a> {
                             Err("pixel formats are not supported".into())
                         }
                     },
+                    #[cfg(not(feature = "raster-images"))]
+                    Some(ImageFormat::Raster(_)) => {
+                        Err("raster images are not supported in this build".into())
+                    }
                     None => Err("unknown image format".into()),
                 }
             }

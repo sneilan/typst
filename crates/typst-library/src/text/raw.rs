@@ -4,7 +4,9 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
+#[cfg(feature = "syntax-highlighting")]
 use syntect::highlighting::{self as synt};
+#[cfg(feature = "syntax-highlighting")]
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
@@ -365,6 +367,25 @@ impl Synthesize for Packed<RawElem> {
 
 impl Packed<RawElem> {
     #[comemo::memoize]
+    #[cfg(not(feature = "syntax-highlighting"))]
+    fn highlight(&self, _routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
+        let elem = self.as_ref();
+        let lines = preprocess(&elem.text, styles, self.span());
+        let count = lines.len() as i64;
+
+        lines.into_iter().enumerate().map(|(i, (line, line_span))| {
+            Packed::new(RawLine::new(
+                i as i64 + 1,
+                count,
+                line.clone(),
+                TextElem::packed(line).spanned(line_span),
+            ))
+            .spanned(line_span)
+        }).collect()
+    }
+
+    #[comemo::memoize]
+    #[cfg(feature = "syntax-highlighting")]
     fn highlight(&self, routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
         let lines = preprocess(&elem.text, styles, self.span());
@@ -631,9 +652,11 @@ fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
 }
 
 /// A loaded syntect theme.
+#[cfg(feature = "syntax-highlighting")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct RawTheme(Arc<ManuallyHash<synt::Theme>>);
 
+#[cfg(feature = "syntax-highlighting")]
 impl RawTheme {
     /// Load a theme from a data source.
     fn load(
@@ -660,12 +683,29 @@ impl RawTheme {
     }
 }
 
+#[cfg(feature = "syntax-highlighting")]
 fn format_theme_error(error: syntect::LoadingError) -> LoadError {
     let pos = match &error {
         syntect::LoadingError::ParseSyntax(err, _) => syntax_error_pos(err),
         _ => ReportPos::None,
     };
     LoadError::new(pos, "failed to parse theme", error)
+}
+
+/// A stub theme type when syntax highlighting is disabled.
+#[cfg(not(feature = "syntax-highlighting"))]
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct RawTheme;
+
+#[cfg(not(feature = "syntax-highlighting"))]
+impl RawTheme {
+    /// Stub load - always returns an error.
+    fn load(
+        _world: Tracked<dyn World + '_>,
+        source: Spanned<DataSource>,
+    ) -> SourceResult<Derived<DataSource, Self>> {
+        Ok(Derived::new(source.v, RawTheme))
+    }
 }
 
 /// A highlighted line of raw text.
@@ -701,6 +741,7 @@ impl PlainText for Packed<RawLine> {
 }
 
 /// Wrapper struct for the state required to highlight Typst code.
+#[cfg(feature = "syntax-highlighting")]
 struct ThemedHighlighter<'a> {
     /// The code being highlighted.
     code: &'a str,
@@ -723,10 +764,13 @@ struct ThemedHighlighter<'a> {
 }
 
 // Shorthands for highlighter closures.
+#[cfg(feature = "syntax-highlighting")]
 type StyleFn<'a> =
     &'a mut dyn FnMut(usize, &LinkedNode, Range<usize>, synt::Style) -> Content;
+#[cfg(feature = "syntax-highlighting")]
 type LineFn<'a> = &'a mut dyn FnMut(usize, Range<usize>, &mut Vec<Content>);
 
+#[cfg(feature = "syntax-highlighting")]
 impl<'a> ThemedHighlighter<'a> {
     pub fn new(
         code: &'a str,
@@ -831,6 +875,7 @@ fn preprocess(
 }
 
 /// Style a piece of text with a syntect style.
+#[cfg(feature = "syntax-highlighting")]
 fn styled(
     routines: &Routines,
     target: Target,
@@ -869,16 +914,19 @@ fn styled(
     body
 }
 
+#[cfg(feature = "syntax-highlighting")]
 fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> Color {
     Color::from_u8(r, g, b, a)
 }
 
+#[cfg(feature = "syntax-highlighting")]
 fn to_syn(color: Color) -> synt::Color {
     let (r, g, b, a) = color.to_rgb().into_format::<u8, u8>().into_components();
     synt::Color { r, g, b, a }
 }
 
 /// Create a syntect theme item.
+#[cfg(feature = "syntax-highlighting")]
 fn item(
     scope: &str,
     color: Option<&str>,
@@ -925,10 +973,12 @@ fn align_tabs(text: &str, tab_size: usize) -> EcoString {
 ///
 /// Syntax set is generated from the syntaxes from the `bat` project
 /// <https://github.com/sharkdp/bat/tree/master/assets/syntaxes>
+#[cfg(feature = "syntax-highlighting")]
 pub static RAW_SYNTAXES: LazyLock<syntect::parsing::SyntaxSet> =
     LazyLock::new(two_face::syntax::extra_no_newlines);
 
 /// The default theme used for syntax highlighting.
+#[cfg(feature = "syntax-highlighting")]
 pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
     name: Some("Typst Light".into()),
     author: Some("The Typst Project Developers".into()),

@@ -7,8 +7,10 @@ use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
+    Datetime, IntoValue, Repr, SymbolElem, Value, format_str,
 };
+#[cfg(feature = "regex")]
+use crate::foundations::Regex;
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
 use crate::visualize::Stroke;
@@ -556,6 +558,7 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
     use Value::*;
     match (lhs, rhs) {
         (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
+        #[cfg(feature = "regex")]
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
         (Str(a), Module(b)) => Some(b.scope().get(a).is_some()),

@@ -2,16 +2,19 @@
 
 #[path = "cbor.rs"]
 mod cbor_;
+#[cfg(feature = "data-loading")]
 #[path = "csv.rs"]
 mod csv_;
 #[path = "json.rs"]
 mod json_;
 #[path = "read.rs"]
 mod read_;
+#[cfg(feature = "data-loading")]
 #[path = "toml.rs"]
 mod toml_;
 #[path = "xml.rs"]
 mod xml_;
+#[cfg(feature = "data-loading")]
 #[path = "yaml.rs"]
 mod yaml_;
 
@@ -20,11 +23,14 @@ use ecow::EcoString;
 use typst_syntax::{FileId, Spanned};
 
 pub use self::cbor_::*;
+#[cfg(feature = "data-loading")]
 pub use self::csv_::*;
 pub use self::json_::*;
 pub use self::read_::*;
+#[cfg(feature = "data-loading")]
 pub use self::toml_::*;
 pub use self::xml_::*;
+#[cfg(feature = "data-loading")]
 pub use self::yaml_::*;
 
 use crate::World;
@@ -36,9 +42,12 @@ use crate::foundations::{Bytes, Scope, Str, cast};
 pub(super) fn define(global: &mut Scope) {
     global.start_category(crate::Category::DataLoading);
     global.define_func::<read>();
+    #[cfg(feature = "data-loading")]
     global.define_func::<csv>();
     global.define_func::<json>();
+    #[cfg(feature = "data-loading")]
     global.define_func::<toml>();
+    #[cfg(feature = "data-loading")]
     global.define_func::<yaml>();
     global.define_func::<cbor>();
     global.define_func::<xml>();

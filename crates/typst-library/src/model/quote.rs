@@ -6,6 +6,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{BlockElem, Em, PadElem};
+#[cfg(feature = "bibliography")]
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuotes, SpaceElem, TextElem};
 
@@ -167,10 +168,13 @@ impl Attribution {
             SpaceElem::shared().clone(),
             match self {
                 Attribution::Content(content) => content.clone(),
+                #[cfg(feature = "bibliography")]
                 Attribution::Label(label) => CiteElem::new(*label)
                     .with_form(Some(CitationForm::Prose))
                     .pack()
                     .spanned(span),
+                #[cfg(not(feature = "bibliography"))]
+                Attribution::Label(_) => Content::empty(),
             },
         ])
     }

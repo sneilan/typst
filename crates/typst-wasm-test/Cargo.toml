@@ -1,0 +1,11 @@
+[package]
+name = "typst-wasm-test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+typst = { path = "../typst", default-features = false }
+typst-library = { path = "../typst-library", default-features = false }

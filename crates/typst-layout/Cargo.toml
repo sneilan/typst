@@ -42,5 +42,10 @@ unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 
+[features]
+default = ["bibliography", "regex"]
+bibliography = ["typst-library/bibliography"]
+regex = ["typst-library/regex"]
+
 [lints]
 workspace = true

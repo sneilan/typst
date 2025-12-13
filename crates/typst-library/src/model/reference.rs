@@ -12,9 +12,9 @@ use crate::introspection::{
     PageSupplementIntrospection, QueryLabelIntrospection, Tagged,
 };
 use crate::math::EquationElem;
-use crate::model::{
-    BibliographyElem, CiteElem, DirectLinkElem, Figurable, FootnoteElem, Numbering,
-};
+#[cfg(feature = "bibliography")]
+use crate::model::{BibliographyElem, CiteElem};
+use crate::model::{DirectLinkElem, Figurable, FootnoteElem, Numbering};
 use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
@@ -190,7 +190,7 @@ pub struct RefElem {
 
     /// A synthesized citation.
     #[synthesized]
-    pub citation: Option<Packed<CiteElem>>,
+    pub citation: Option<Content>,
 
     /// The referenced element.
     #[synthesized]
@@ -201,18 +201,33 @@ impl Synthesize for Packed<RefElem> {
     fn synthesize(
         &mut self,
         engine: &mut Engine,
+        #[cfg_attr(not(feature = "bibliography"), allow(unused_variables))]
         styles: StyleChain,
     ) -> SourceResult<()> {
         let span = self.span();
-        let citation = to_citation(self, engine, styles)?;
-
         let elem = self.as_mut();
-        elem.citation = Some(Some(citation));
+        #[cfg(feature = "bibliography")]
+        {
+            let citation = to_citation(self, engine, styles)?;
+            elem.citation = Some(Some(citation.pack()));
+        }
+        #[cfg(not(feature = "bibliography"))]
+        {
+            elem.citation = Some(None);
+        }
         elem.element = Some(None);
 
+        #[cfg(feature = "bibliography")]
         if !BibliographyElem::has(engine, elem.target, span)
             && let Ok(found) =
                 engine.introspect(QueryLabelIntrospection(elem.target, span))
+        {
+            elem.element = Some(Some(found));
+            return Ok(());
+        }
+
+        #[cfg(not(feature = "bibliography"))]
+        if let Ok(found) = engine.introspect(QueryLabelIntrospection(elem.target, span))
         {
             elem.element = Some(Some(found));
             return Ok(());
@@ -259,6 +274,7 @@ impl Packed<RefElem> {
         }
         // RefForm::Normal
 
+        #[cfg(feature = "bibliography")]
         if BibliographyElem::has(engine, self.target, span) {
             if let Ok(elem) = elem {
                 bail!(
@@ -360,6 +376,7 @@ fn realize_reference(
 }
 
 /// Turn a reference into a citation.
+#[cfg(feature = "bibliography")]
 fn to_citation(
     reference: &Packed<RefElem>,
     engine: &mut Engine,

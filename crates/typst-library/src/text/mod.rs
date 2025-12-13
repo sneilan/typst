@@ -6,6 +6,7 @@ mod font;
 mod item;
 mod lang;
 mod linebreak;
+#[cfg(feature = "lorem")]
 #[path = "lorem.rs"]
 mod lorem_;
 mod raw;
@@ -21,6 +22,7 @@ pub use self::font::*;
 pub use self::item::*;
 pub use self::lang::*;
 pub use self::linebreak::*;
+#[cfg(feature = "lorem")]
 pub use self::lorem_::*;
 pub use self::raw::*;
 pub use self::shift::*;
@@ -49,9 +51,11 @@ use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning}
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    NoneValue, Packed, PlainText, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
+#[cfg(feature = "regex")]
+use crate::foundations::Regex;
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
@@ -72,6 +76,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<RawElem>();
     global.define_func::<lower>();
     global.define_func::<upper>();
+    #[cfg(feature = "lorem")]
     global.define_func::<lorem>();
     global.reset_category();
 }
@@ -838,16 +843,25 @@ pub struct FontFamily {
     // The name of the font family
     name: EcoString,
     // A regex that defines the Unicode codepoints supported by the font.
+    #[cfg(feature = "regex")]
     covers: Option<Covers>,
 }
 
 impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self::with_coverage(string, None)
+        #[cfg(feature = "regex")]
+        {
+            Self::with_coverage(string, None)
+        }
+        #[cfg(not(feature = "regex"))]
+        {
+            Self { name: string.to_lowercase().into() }
+        }
     }
 
     /// Create a font family by name and optional Unicode coverage.
+    #[cfg(feature = "regex")]
     pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
         Self { name: string.to_lowercase().into(), covers }
     }
@@ -858,11 +872,19 @@ impl FontFamily {
     }
 
     /// The user-set coverage of the font family.
+    #[cfg(feature = "regex")]
     pub fn covers(&self) -> Option<&Regex> {
         self.covers.as_ref().map(|covers| covers.as_regex())
     }
+
+    /// The user-set coverage of the font family (always None when regex is disabled).
+    #[cfg(not(feature = "regex"))]
+    pub fn covers(&self) -> Option<&Never> {
+        None
+    }
 }
 
+#[cfg(feature = "regex")]
 cast! {
     FontFamily,
     self => match self.covers {
@@ -883,7 +905,20 @@ cast! {
     },
 }
 
+#[cfg(not(feature = "regex"))]
+cast! {
+    FontFamily,
+    self => self.name.into_value(),
+    string: EcoString => Self::new(&string),
+    mut v: Dict => {
+        let ret = Self::new(&v.take("name")?.cast::<EcoString>()?);
+        v.finish(&["name"])?;
+        ret
+    },
+}
+
 /// Defines which codepoints a font family will be used for.
+#[cfg(feature = "regex")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Covers {
     /// Covers all codepoints except those used both in Latin and CJK fonts.
@@ -892,6 +927,7 @@ pub enum Covers {
     Regex(Regex),
 }
 
+#[cfg(feature = "regex")]
 impl Covers {
     /// Retrieve the regex for the coverage.
     pub fn as_regex(&self) -> &Regex {
@@ -909,6 +945,7 @@ impl Covers {
     }
 }
 
+#[cfg(feature = "regex")]
 cast! {
     Covers,
     self => match self {

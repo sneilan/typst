@@ -350,6 +350,7 @@ impl Str {
     ) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.contains(pat.as_str()),
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => re.is_match(self),
         }
     }
@@ -363,6 +364,7 @@ impl Str {
     ) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => re.find(self).is_some_and(|m| m.start() == 0),
         }
     }
@@ -376,6 +378,7 @@ impl Str {
     ) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => {
                 let mut start_byte = 0;
                 while let Some(mat) = re.find_at(self, start_byte) {
@@ -403,6 +406,7 @@ impl Str {
     ) -> Option<Str> {
         match pattern {
             StrPattern::Str(pat) => self.0.contains(pat.as_str()).then_some(pat),
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
         }
     }
@@ -417,6 +421,7 @@ impl Str {
     ) -> Option<usize> {
         match pattern {
             StrPattern::Str(pat) => self.0.find(pat.as_str()),
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => re.find(self).map(|m| m.start()),
         }
     }
@@ -454,6 +459,7 @@ impl Str {
             StrPattern::Str(pat) => {
                 self.0.match_indices(pat.as_str()).next().map(match_to_dict)
             }
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => re.captures(self).map(captures_to_dict),
         }
     }
@@ -478,6 +484,7 @@ impl Str {
                 .map(match_to_dict)
                 .map(Value::Dict)
                 .collect(),
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => re
                 .captures_iter(self)
                 .map(captures_to_dict)
@@ -542,6 +549,7 @@ impl Str {
                     handle_match(start..start + text.len(), match_to_dict(m))?;
                 }
             }
+            #[cfg(feature = "regex")]
             StrPattern::Regex(re) => {
                 for caps in re.captures_iter(self).take(count) {
                     // Extract the entire match over all capture groups.
@@ -603,6 +611,7 @@ impl Str {
                 }
                 s
             }
+            #[cfg(feature = "regex")]
             Some(StrPattern::Regex(re)) => {
                 let s = self.as_str();
                 let mut last = None;
@@ -662,6 +671,7 @@ impl Str {
             Some(StrPattern::Str(pat)) => {
                 s.split(pat.as_str()).map(|v| Value::Str(v.into())).collect()
             }
+            #[cfg(feature = "regex")]
             Some(StrPattern::Regex(re)) => {
                 re.split(s).map(|v| Value::Str(v.into())).collect()
             }
@@ -911,6 +921,7 @@ fn match_to_dict((start, text): (usize, &str)) -> Dict {
 }
 
 /// Convert regex captures to a dictionary.
+#[cfg(feature = "regex")]
 fn captures_to_dict(cap: regex::Captures) -> Dict {
     let m = cap.get(0).expect("missing first match");
     dict! {
@@ -970,10 +981,12 @@ fn string_is_empty() -> EcoString {
 ///
 /// The numbers 1 to 10.
 /// ```
+#[cfg(feature = "regex")]
 #[ty(scope)]
 #[derive(Debug, Clone)]
 pub struct Regex(regex::Regex);
 
+#[cfg(feature = "regex")]
 impl Regex {
     /// Create a new regular expression.
     pub fn new(re: &str) -> StrResult<Self> {
@@ -981,6 +994,7 @@ impl Regex {
     }
 }
 
+#[cfg(feature = "regex")]
 #[scope]
 impl Regex {
     /// Create a regular expression from a string.
@@ -1006,6 +1020,7 @@ impl Regex {
     }
 }
 
+#[cfg(feature = "regex")]
 impl Deref for Regex {
     type Target = regex::Regex;
 
@@ -1014,18 +1029,21 @@ impl Deref for Regex {
     }
 }
 
+#[cfg(feature = "regex")]
 impl Repr for Regex {
     fn repr(&self) -> EcoString {
         eco_format!("regex({})", self.0.as_str().repr())
     }
 }
 
+#[cfg(feature = "regex")]
 impl PartialEq for Regex {
     fn eq(&self, other: &Self) -> bool {
         self.0.as_str() == other.0.as_str()
     }
 }
 
+#[cfg(feature = "regex")]
 impl Hash for Regex {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.as_str().hash(state);
@@ -1038,9 +1056,11 @@ pub enum StrPattern {
     /// Just a string.
     Str(Str),
     /// A regular expression.
+    #[cfg(feature = "regex")]
     Regex(Regex),
 }
 
+#[cfg(feature = "regex")]
 cast! {
     StrPattern,
     self => match self {
@@ -1049,6 +1069,15 @@ cast! {
     },
     v: Str => Self::Str(v),
     v: Regex => Self::Regex(v),
+}
+
+#[cfg(not(feature = "regex"))]
+cast! {
+    StrPattern,
+    self => match self {
+        Self::Str(v) => v.into_value(),
+    },
+    v: Str => Self::Str(v),
 }
 
 /// A side of a string.

@@ -22,7 +22,12 @@ arrayvec = { workspace = true }
 bumpalo = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-regex = { workspace = true }
+regex = { workspace = true, optional = true }
+
+[features]
+default = ["bibliography", "regex"]
+bibliography = ["typst-library/bibliography"]
+regex = ["dep:regex", "typst-library/regex"]
 
 [lints]
 workspace = true

@@ -1,10 +1,14 @@
 //! Image handling.
 
+#[cfg(feature = "pdf-images")]
 mod pdf;
+#[cfg(feature = "raster-images")]
 mod raster;
 mod svg;
 
+#[cfg(feature = "pdf-images")]
 pub use self::pdf::PdfImage;
+#[cfg(feature = "raster-images")]
 pub use self::raster::{
     ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
 };
@@ -16,6 +20,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use ecow::EcoString;
+#[cfg(feature = "pdf-images")]
 use hayro_syntax::LoadPdfError;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, NonZeroExt};
@@ -31,6 +36,7 @@ use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::{LocalName, Locale, families};
+#[cfg(feature = "pdf-images")]
 use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.

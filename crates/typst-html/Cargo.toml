@@ -27,5 +27,9 @@ palette = { workspace = true }
 rustc-hash = { workspace = true }
 time = { workspace = true }
 
+[features]
+default = ["bibliography"]
+bibliography = ["typst-library/bibliography"]
+
 [lints]
 workspace = true

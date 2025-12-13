@@ -10,9 +10,9 @@ use xmlwriter::XmlWriter;
 use crate::foundations::Bytes;
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::text::{Font, Glyph};
-use crate::visualize::{
-    ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, SvgImage,
-};
+use crate::visualize::{FixedStroke, Geometry, Image, SvgImage};
+#[cfg(feature = "raster-images")]
+use crate::visualize::{ExchangeFormat, RasterImage};
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
@@ -66,12 +66,14 @@ fn draw_glyph(
     glyph_id: GlyphId,
 ) -> Option<()> {
     let ttf = font.ttf();
+    #[cfg(feature = "raster-images")]
     if let Some(raster_image) = ttf
         .glyph_raster_image(glyph_id, u16::MAX)
         .filter(|img| img.format == ttf_parser::RasterImageFormat::PNG)
     {
-        draw_raster_glyph(frame, font, upem, raster_image)
-    } else if ttf.is_color_glyph(glyph_id) {
+        return draw_raster_glyph(frame, font, upem, raster_image);
+    }
+    if ttf.is_color_glyph(glyph_id) {
         draw_colr_glyph(frame, font, upem, glyph_id)
     } else if ttf.glyph_svg_image(glyph_id).is_some() {
         draw_svg_glyph(frame, font, upem, glyph_id)
@@ -100,6 +102,7 @@ fn draw_fallback_tofu(frame: &mut Frame, font: &Font, upem: Abs, glyph_id: Glyph
 /// Draws a raster glyph in a frame.
 ///
 /// Supports only PNG images.
+#[cfg(feature = "raster-images")]
 fn draw_raster_glyph(
     frame: &mut Frame,
     font: &Font,
