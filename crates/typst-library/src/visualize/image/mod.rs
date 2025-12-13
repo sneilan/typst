@@ -286,6 +286,7 @@ impl Packed<ImageElem> {
 
         // Construct the image itself.
         let kind = match format {
+            #[cfg(feature = "raster-images")]
             ImageFormat::Raster(format) => ImageKind::Raster(
                 RasterImage::new(
                     loaded.data.clone(),
@@ -407,7 +408,8 @@ impl Packed<ImageElem> {
 }
 
 /// Derive the image format from the file extension of a path.
-fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
+#[cfg(feature = "raster-images")]
+pub(crate) fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
     let ext = std::path::Path::new(path)
         .extension()
         .and_then(OsStr::to_str)
@@ -421,6 +423,23 @@ fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
         "gif" => Some(ExchangeFormat::Gif.into()),
         "webp" => Some(ExchangeFormat::Webp.into()),
         // Vector formats
+        "svg" | "svgz" => Some(VectorFormat::Svg.into()),
+        "pdf" => Some(VectorFormat::Pdf.into()),
+        _ => None,
+    }
+}
+
+/// Derive the image format from the file extension of a path.
+#[cfg(not(feature = "raster-images"))]
+pub(crate) fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase();
+
+    match ext.as_str() {
+        // Vector formats only
         "svg" | "svgz" => Some(VectorFormat::Svg.into()),
         "pdf" => Some(VectorFormat::Pdf.into()),
         _ => None,
@@ -503,8 +522,10 @@ impl Image {
     /// The format of the image.
     pub fn format(&self) -> ImageFormat {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.format().into(),
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => VectorFormat::Pdf.into(),
         }
     }
@@ -512,8 +533,10 @@ impl Image {
     /// The width of the image in pixels.
     pub fn width(&self) -> f64 {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.width() as f64,
         }
     }
@@ -521,8 +544,10 @@ impl Image {
     /// The height of the image in pixels.
     pub fn height(&self) -> f64 {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.height() as f64,
         }
     }
@@ -530,8 +555,10 @@ impl Image {
     /// The image's pixel density in pixels per inch, if known.
     pub fn dpi(&self) -> Option<f64> {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.dpi(),
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => Some(Image::DEFAULT_DPI),
         }
     }
