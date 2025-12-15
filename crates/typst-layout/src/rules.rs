@@ -33,9 +33,11 @@ use typst_library::text::{
     TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
-    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
+    CircleElem, CurveElem, EllipseElem, LineElem, PathElem, PolygonElem,
     RectElem, SquareElem, Stroke,
 };
+#[cfg(feature = "images")]
+use typst_library::visualize::ImageElem;
 use typst_utils::{Get, Numeric};
 
 /// Register show rules for the [paged target](Target::Paged).
@@ -98,6 +100,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LAYOUT_RULE);
 
     // Visualize.
+    #[cfg(feature = "images")]
     rules.register(Paged, IMAGE_RULE);
     rules.register(Paged, LINE_RULE);
     rules.register(Paged, RECT_RULE);
@@ -783,6 +786,7 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
     .pack())
 };
 
+#[cfg(feature = "images")]
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
         .with_width(elem.width.get(styles))

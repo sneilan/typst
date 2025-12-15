@@ -84,6 +84,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
                 buf.as_slice()
             }),
         },
+        #[cfg(feature = "svg")]
         ImageKind::Svg(svg) => ("svg+xml", svg.data()),
         #[cfg(feature = "pdf-images")]
         ImageKind::Pdf(pdf) => {

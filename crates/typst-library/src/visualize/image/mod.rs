@@ -4,6 +4,7 @@
 mod pdf;
 #[cfg(feature = "raster-images")]
 mod raster;
+#[cfg(feature = "svg")]
 mod svg;
 
 #[cfg(feature = "pdf-images")]
@@ -12,6 +13,7 @@ pub use self::pdf::PdfImage;
 pub use self::raster::{
     ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
 };
+#[cfg(feature = "svg")]
 pub use self::svg::SvgImage;
 
 use std::ffi::OsStr;
@@ -295,6 +297,7 @@ impl Packed<ImageElem> {
                 )
                 .at(span)?,
             ),
+            #[cfg(feature = "svg")]
             ImageFormat::Vector(VectorFormat::Svg) => {
                 // Warn the user if the image contains a foreign object. Not
                 // perfect because the svg could also be encoded, but that's an
@@ -324,6 +327,10 @@ impl Packed<ImageElem> {
                     )
                     .within(loaded)?,
                 )
+            }
+            #[cfg(not(feature = "svg"))]
+            ImageFormat::Vector(VectorFormat::Svg) => {
+                bail!(span, "SVG support is not enabled in this build")
             }
             #[cfg(feature = "pdf-images")]
             ImageFormat::Vector(VectorFormat::Pdf) => {
@@ -524,6 +531,7 @@ impl Image {
         match &self.0.kind {
             #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.format().into(),
+            #[cfg(feature = "svg")]
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
             #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => VectorFormat::Pdf.into(),
@@ -535,6 +543,7 @@ impl Image {
         match &self.0.kind {
             #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.width() as f64,
+            #[cfg(feature = "svg")]
             ImageKind::Svg(svg) => svg.width(),
             #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.width() as f64,
@@ -546,6 +555,7 @@ impl Image {
         match &self.0.kind {
             #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.height() as f64,
+            #[cfg(feature = "svg")]
             ImageKind::Svg(svg) => svg.height(),
             #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.height() as f64,
@@ -557,6 +567,7 @@ impl Image {
         match &self.0.kind {
             #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.dpi(),
+            #[cfg(feature = "svg")]
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
             #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => Some(Image::DEFAULT_DPI),
@@ -598,6 +609,7 @@ pub enum ImageKind {
     #[cfg(feature = "raster-images")]
     Raster(RasterImage),
     /// An SVG image.
+    #[cfg(feature = "svg")]
     Svg(SvgImage),
     /// A PDF image.
     #[cfg(feature = "pdf-images")]
@@ -611,6 +623,7 @@ impl From<RasterImage> for ImageKind {
     }
 }
 
+#[cfg(feature = "svg")]
 impl From<SvgImage> for ImageKind {
     fn from(image: SvgImage) -> Self {
         Self::Svg(image)

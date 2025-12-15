@@ -43,10 +43,11 @@ unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 [features]
-default = ["bibliography", "regex", "hyphenation"]
+default = ["bibliography", "regex", "hyphenation", "images"]
 bibliography = ["typst-library/bibliography"]
 regex = ["typst-library/regex"]
 hyphenation = ["dep:hypher"]
+images = ["typst-library/raster-images", "typst-library/svg", "typst-library/pdf-images"]
 
 [lints]
 workspace = true

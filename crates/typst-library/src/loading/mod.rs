@@ -12,6 +12,7 @@ mod read_;
 #[cfg(feature = "data-loading")]
 #[path = "toml.rs"]
 mod toml_;
+#[cfg(feature = "data-loading")]
 #[path = "xml.rs"]
 mod xml_;
 #[cfg(feature = "data-loading")]
@@ -29,6 +30,7 @@ pub use self::json_::*;
 pub use self::read_::*;
 #[cfg(feature = "data-loading")]
 pub use self::toml_::*;
+#[cfg(feature = "data-loading")]
 pub use self::xml_::*;
 #[cfg(feature = "data-loading")]
 pub use self::yaml_::*;
@@ -50,6 +52,7 @@ pub(super) fn define(global: &mut Scope) {
     #[cfg(feature = "data-loading")]
     global.define_func::<yaml>();
     global.define_func::<cbor>();
+    #[cfg(feature = "data-loading")]
     global.define_func::<xml>();
     global.reset_category();
 }

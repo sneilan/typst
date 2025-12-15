@@ -29,7 +29,7 @@ comemo = { workspace = true }
 csv = { workspace = true, optional = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
-fontdb = { workspace = true }
+fontdb = { workspace = true, optional = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true, optional = true }
 hayro-syntax = { workspace = true, optional = true }
@@ -49,7 +49,7 @@ qcms = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true, optional = true }
 regex-syntax = { workspace = true, optional = true }
-roxmltree = { workspace = true }
+roxmltree = { workspace = true, optional = true }
 rust_decimal = { workspace = true }
 rustc-hash = { workspace = true }
 rustybuzz = { workspace = true }
@@ -68,7 +68,7 @@ unicode-math-class = { workspace = true }
 unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
-usvg = { workspace = true }
+usvg = { workspace = true, optional = true }
 utf8_iter = { workspace = true }
 wasmi = { workspace = true, optional = true }
 xmlwriter = { workspace = true }
@@ -77,15 +77,16 @@ xmlwriter = { workspace = true }
 typst-dev-assets = { workspace = true }
 
 [features]
-default = ["bibliography", "syntax-highlighting", "plugins", "raster-images", "regex", "pdf-images", "data-loading", "lorem"]
+default = ["bibliography", "syntax-highlighting", "plugins", "raster-images", "regex", "pdf-images", "data-loading", "lorem", "svg"]
 bibliography = ["dep:hayagriva"]
 syntax-highlighting = ["dep:syntect", "dep:two-face"]
 plugins = ["dep:wasmi"]
 raster-images = ["dep:image", "dep:kamadak-exif"]
 regex = ["dep:regex", "dep:regex-syntax"]
 pdf-images = ["dep:hayro-syntax"]
-data-loading = ["dep:csv", "dep:toml", "dep:serde_yaml"]
+data-loading = ["dep:csv", "dep:toml", "dep:serde_yaml", "dep:roxmltree"]
 lorem = ["dep:lipsum"]
+svg = ["dep:usvg", "dep:fontdb", "dep:roxmltree"]
 
 [lints]
 workspace = true

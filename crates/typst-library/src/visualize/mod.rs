@@ -3,6 +3,7 @@
 mod color;
 mod curve;
 mod gradient;
+#[cfg(any(feature = "raster-images", feature = "svg", feature = "pdf-images"))]
 mod image;
 mod line;
 mod paint;
@@ -15,6 +16,7 @@ mod tiling;
 pub use self::color::*;
 pub use self::curve::*;
 pub use self::gradient::*;
+#[cfg(any(feature = "raster-images", feature = "svg", feature = "pdf-images"))]
 pub use self::image::*;
 pub use self::line::*;
 pub use self::paint::*;
@@ -34,6 +36,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_type::<Gradient>();
     global.define_type::<Tiling>();
     global.define_type::<Stroke>();
+    #[cfg(any(feature = "raster-images", feature = "svg", feature = "pdf-images"))]
     global.define_elem::<ImageElem>();
     global.define_elem::<LineElem>();
     global.define_elem::<RectElem>();

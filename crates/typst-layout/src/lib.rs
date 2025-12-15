@@ -2,6 +2,7 @@
 
 mod flow;
 mod grid;
+#[cfg(feature = "images")]
 mod image;
 mod inline;
 mod lists;

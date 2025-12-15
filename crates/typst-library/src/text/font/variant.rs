@@ -58,6 +58,7 @@ impl FontStyle {
     }
 }
 
+#[cfg(feature = "svg")]
 impl From<usvg::FontStyle> for FontStyle {
     fn from(style: usvg::FontStyle) -> Self {
         match style {
@@ -138,6 +139,7 @@ impl Debug for FontWeight {
     }
 }
 
+#[cfg(feature = "svg")]
 impl From<fontdb::Weight> for FontWeight {
     fn from(weight: fontdb::Weight) -> Self {
         Self::from_number(weight.0)
@@ -273,6 +275,7 @@ impl Repr for FontStretch {
     }
 }
 
+#[cfg(feature = "svg")]
 impl From<usvg::FontStretch> for FontStretch {
     fn from(stretch: usvg::FontStretch) -> Self {
         match stretch {

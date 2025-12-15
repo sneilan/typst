@@ -1,21 +1,25 @@
 //! Utilities for color font handling
 
+#[cfg(feature = "svg")]
 use std::io::Read;
 
 use ttf_parser::{GlyphId, RgbaColor};
 use typst_syntax::Span;
-use usvg::tiny_skia_path;
+#[cfg(feature = "svg")]
 use xmlwriter::XmlWriter;
 
 use crate::foundations::Bytes;
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::text::{Font, Glyph};
-use crate::visualize::{FixedStroke, Geometry, Image, SvgImage};
+#[cfg(feature = "svg")]
+use crate::visualize::{Image, SvgImage};
+use crate::visualize::{FixedStroke, Geometry};
 #[cfg(feature = "raster-images")]
 use crate::visualize::{ExchangeFormat, RasterImage};
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
+#[cfg(feature = "svg")]
 pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
     let ttf = font.ttf();
     let glyph_id = GlyphId(glyph.id);
@@ -25,6 +29,23 @@ pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
             .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
         && !ttf.is_color_glyph(glyph_id)
         && ttf.glyph_svg_image(glyph_id).is_none()
+}
+
+/// When SVG support is disabled, always use simple outlining (no color font support).
+#[cfg(not(feature = "svg"))]
+pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
+    let ttf = font.ttf();
+    let glyph_id = GlyphId(glyph.id);
+    // Without SVG support, we can only render simple outlines, not color glyphs
+    // But we still check for raster images if that feature is enabled
+    #[cfg(feature = "raster-images")]
+    if ttf
+        .glyph_raster_image(glyph_id, u16::MAX)
+        .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
+    {
+        return false;
+    }
+    ttf.tables().glyf.is_some() || ttf.tables().cff.is_some()
 }
 
 /// Returns a frame representing a glyph and whether it is a fallback tofu
@@ -37,6 +58,7 @@ pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
 ///
 /// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
+#[cfg(feature = "svg")]
 pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
     let upem = Abs::pt(font.units_per_em());
     let glyph_id = GlyphId(glyph_id);
@@ -58,7 +80,38 @@ pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
     (frame, tofu)
 }
 
+/// Simplified glyph_frame when SVG support is disabled - only handles raster images.
+#[comemo::memoize]
+#[cfg(not(feature = "svg"))]
+pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
+    let upem = Abs::pt(font.units_per_em());
+    let glyph_id = GlyphId(glyph_id);
+
+    let mut frame = Frame::soft(Size::splat(upem));
+    let mut tofu = false;
+
+    #[cfg(feature = "raster-images")]
+    if let Some(raster_image) = font
+        .ttf()
+        .glyph_raster_image(glyph_id, u16::MAX)
+        .filter(|img| img.format == ttf_parser::RasterImageFormat::PNG)
+    {
+        if draw_raster_glyph(&mut frame, font, upem, raster_image).is_some() {
+            return (frame, false);
+        }
+    }
+
+    // Generate a fallback tofu if the glyph couldn't be drawn
+    if font.ttf().glyph_index(' ') != Some(glyph_id) {
+        draw_fallback_tofu(&mut frame, font, upem, glyph_id);
+        tofu = true;
+    }
+
+    (frame, tofu)
+}
+
 /// Tries to draw a glyph.
+#[cfg(feature = "svg")]
 fn draw_glyph(
     frame: &mut Frame,
     font: &Font,
@@ -133,6 +186,7 @@ fn draw_raster_glyph(
 }
 
 /// Convert a COLR glyph into an SVG file.
+#[cfg(feature = "svg")]
 pub fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
@@ -180,6 +234,7 @@ pub fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
 }
 
 /// Draws a glyph from the COLR table into the frame.
+#[cfg(feature = "svg")]
 fn draw_colr_glyph(
     frame: &mut Frame,
     font: &Font,
@@ -206,6 +261,7 @@ fn draw_colr_glyph(
 }
 
 /// Draws an SVG glyph in a frame.
+#[cfg(feature = "svg")]
 fn draw_svg_glyph(
     frame: &mut Frame,
     font: &Font,
@@ -282,6 +338,7 @@ fn draw_svg_glyph(
 
 /// Remove all size specifications (viewBox, width and height attributes) from a
 /// SVG document.
+#[cfg(feature = "svg")]
 fn make_svg_unsized(svg: &mut String) {
     let mut viewbox_range = None;
     let mut width_range = None;
@@ -326,8 +383,10 @@ fn make_svg_unsized(svg: &mut String) {
     }
 }
 
+#[cfg(feature = "svg")]
 struct ColrBuilder<'a>(&'a mut String);
 
+#[cfg(feature = "svg")]
 impl ColrBuilder<'_> {
     fn finish(&mut self) {
         if !self.0.is_empty() {
@@ -336,6 +395,7 @@ impl ColrBuilder<'_> {
     }
 }
 
+#[cfg(feature = "svg")]
 impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
     fn move_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
@@ -364,6 +424,7 @@ impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
 
 // NOTE: This is only a best-effort translation of COLR into SVG. It's not feature-complete
 // and it's also not possible to make it feature-complete using just raw SVG features.
+#[cfg(feature = "svg")]
 pub(crate) struct GlyphPainter<'a> {
     pub(crate) face: &'a ttf_parser::Face<'a>,
     pub(crate) svg: &'a mut xmlwriter::XmlWriter,
@@ -376,6 +437,7 @@ pub(crate) struct GlyphPainter<'a> {
     pub(crate) transforms_stack: Vec<ttf_parser::Transform>,
 }
 
+#[cfg(feature = "svg")]
 impl<'a> GlyphPainter<'a> {
     fn write_gradient_stops(&mut self, stops: ttf_parser::colr::GradientStopsIter) {
         for stop in stops {
@@ -497,11 +559,12 @@ impl<'a> GlyphPainter<'a> {
     fn paint_sweep_gradient(&mut self, _: ttf_parser::colr::SweepGradient<'a>) {}
 }
 
+#[cfg(feature = "svg")]
 fn paint_transform(
     outline_transform: ttf_parser::Transform,
     transform: ttf_parser::Transform,
 ) -> ttf_parser::Transform {
-    let outline_transform = tiny_skia_path::Transform::from_row(
+    let outline_transform = usvg::tiny_skia_path::Transform::from_row(
         outline_transform.a,
         outline_transform.b,
         outline_transform.c,
@@ -510,7 +573,7 @@ fn paint_transform(
         outline_transform.f,
     );
 
-    let gradient_transform = tiny_skia_path::Transform::from_row(
+    let gradient_transform = usvg::tiny_skia_path::Transform::from_row(
         transform.a,
         transform.b,
         transform.c,
@@ -535,6 +598,7 @@ fn paint_transform(
     }
 }
 
+#[cfg(feature = "svg")]
 impl GlyphPainter<'_> {
     fn clip_with_path(&mut self, path: &str) {
         let clip_id = format!("cp{}", self.clip_path_index);
@@ -554,6 +618,7 @@ impl GlyphPainter<'_> {
     }
 }
 
+#[cfg(feature = "svg")]
 impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
     fn outline_glyph(&mut self, glyph_id: ttf_parser::GlyphId) {
         self.path_buf.clear();

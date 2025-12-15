@@ -905,6 +905,7 @@ impl LineCol {
 }
 
 /// Format a user-facing error message for an XML-like file format.
+#[cfg(any(feature = "svg", feature = "data-loading"))]
 pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError {
     let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);
     let message = match error {

@@ -31,9 +31,10 @@ xmlparser = { workspace = true }
 xmlwriter = { workspace = true }
 
 [features]
-default = ["raster-images", "pdf-images"]
+default = ["raster-images", "pdf-images", "svg"]
 raster-images = ["dep:image", "typst-library/raster-images"]
 pdf-images = ["dep:hayro", "dep:hayro-svg", "typst-library/pdf-images"]
+svg = ["typst-library/svg"]
 
 [lints]
 workspace = true
