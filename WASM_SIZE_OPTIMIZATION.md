@@ -6,8 +6,8 @@ Goal: Create a minimal WASM build of Typst for a math notebook application.
 
 | Stage | Size |
 |-------|------|
-| Raw WASM | 5.7 MB |
-| **Brotli** | **1.65 MB** |
+| Raw WASM | 4.5 MB |
+| **Brotli** | **1.49 MB** |
 
 ### Previous Results
 
@@ -17,6 +17,7 @@ Goal: Create a minimal WASM build of Typst for a math notebook application.
 | After build optimizations | 6.9 MB | 2.5 MB |
 | After making HTML optional | 6.8 MB | 2.39 MB |
 | After making hyphenation optional | 5.7 MB | 1.65 MB |
+| After making SVG/images optional | 4.5 MB | 1.49 MB |
 
 ## Features Made Optional (Completed)
 
@@ -32,6 +33,7 @@ Goal: Create a minimal WASM build of Typst for a math notebook application.
 | Lorem ipsum | lipsum | ✅ Done |
 | HTML export | typst-html | ✅ Done |
 | Hyphenation | hypher | ✅ Done (1.1 MB raw, 0.74 MB Brotli savings) |
+| SVG/Images | usvg, fontdb, roxmltree, image | ✅ Done (1.2 MB raw, 0.16 MB Brotli savings) |
 
 ## Build Command
 
