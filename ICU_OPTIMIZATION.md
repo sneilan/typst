@@ -3,6 +3,46 @@
 ## Goal
 Reduce WASM size by making ICU (International Components for Unicode) data optional or using smaller alternatives.
 
+## Implementation Status
+
+### ✅ Completed
+- **Strategy A**: Simple line breaking fallback (`icu-linebreak` feature in `typst-layout`)
+- **Strategy B**: Hardcoded combining classes for math accents (`icu-properties` feature in `typst-library`)
+- **Strategy D**: Default ignorable check fallback (`icu-properties` feature in `typst-library`)
+
+### Feature Flags
+
+**typst-layout (`crates/typst-layout/Cargo.toml`):**
+```toml
+[features]
+icu-linebreak = [
+    "dep:icu_properties",
+    "dep:icu_provider",
+    "dep:icu_provider_adapters",
+    "dep:icu_provider_blob",
+    "dep:icu_segmenter",
+]
+```
+
+**typst-library (`crates/typst-library/Cargo.toml`):**
+```toml
+[features]
+icu-properties = [
+    "dep:icu_properties",
+    "dep:icu_provider",
+    "dep:icu_provider_blob",
+]
+```
+
+### Building Without ICU (for minimal WASM)
+```bash
+# Build typst-layout without ICU line breaking
+cargo build --package typst-layout --no-default-features --features "bibliography,regex,hyphenation,images"
+
+# Build typst-library without ICU properties
+cargo build --package typst-library --no-default-features --features "bibliography,syntax-highlighting,plugins,raster-images,regex,pdf-images,data-loading,lorem,svg"
+```
+
 ## Current State
 - Raw WASM: 4.5 MB
 - Brotli: 1.49 MB

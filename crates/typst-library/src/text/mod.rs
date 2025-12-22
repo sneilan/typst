@@ -33,11 +33,15 @@ pub use self::space::*;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::str::FromStr;
+#[cfg(feature = "icu-properties")]
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
+#[cfg(feature = "icu-properties")]
 use icu_properties::sets::CodePointSetData;
+#[cfg(feature = "icu-properties")]
 use icu_provider::AsDeserializingBufferProvider;
+#[cfg(feature = "icu-properties")]
 use icu_provider_blob::BlobDataProvider;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
@@ -1538,7 +1542,8 @@ cast! {
     },
 }
 
-/// Whether a codepoint is Unicode `Default_Ignorable`.
+/// Whether a codepoint is Unicode `Default_Ignorable` (ICU-based).
+#[cfg(feature = "icu-properties")]
 pub fn is_default_ignorable(c: char) -> bool {
     /// The set of Unicode default ignorables.
     static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetData> = LazyLock::new(|| {
@@ -1550,6 +1555,38 @@ pub fn is_default_ignorable(c: char) -> bool {
         .unwrap()
     });
     DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
+}
+
+/// Whether a codepoint is Unicode `Default_Ignorable` (simple fallback).
+///
+/// This is a simplified check that covers the most common default ignorable
+/// characters without requiring the full ICU data.
+#[cfg(not(feature = "icu-properties"))]
+pub fn is_default_ignorable(c: char) -> bool {
+    // Common default ignorable characters used in text processing:
+    // - Zero-width characters
+    // - Format control characters
+    // - Variation selectors
+    matches!(c,
+        // Zero-width characters
+        '\u{200B}'..='\u{200F}' |  // ZWSP, ZWNJ, ZWJ, LRM, RLM
+        '\u{2028}'..='\u{202F}' |  // Line/paragraph separators, directional controls
+        '\u{2060}'..='\u{2064}' |  // Word joiner, invisible operators
+        '\u{2066}'..='\u{206F}' |  // Directional isolates
+        // Variation selectors
+        '\u{FE00}'..='\u{FE0F}' |  // VS1-VS16
+        '\u{E0100}'..='\u{E01EF}' | // VS17-VS256
+        // Other format controls
+        '\u{FEFF}' |               // BOM/ZWNBSP
+        '\u{00AD}' |               // Soft hyphen
+        '\u{034F}' |               // Combining grapheme joiner
+        '\u{061C}' |               // Arabic letter mark
+        '\u{115F}'..='\u{1160}' |  // Hangul fillers
+        '\u{17B4}'..='\u{17B5}' |  // Khmer vowel inherent
+        '\u{180B}'..='\u{180F}' |  // Mongolian free variation selectors
+        '\u{3164}' |               // Hangul filler
+        '\u{FFA0}'                 // Halfwidth Hangul filler
+    )
 }
 
 /// Checks for font families that are not available.

@@ -33,9 +33,9 @@ fontdb = { workspace = true, optional = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true, optional = true }
 hayro-syntax = { workspace = true, optional = true }
-icu_properties = { workspace = true }
-icu_provider = { workspace = true }
-icu_provider_blob = { workspace = true }
+icu_properties = { workspace = true, optional = true }
+icu_provider = { workspace = true, optional = true }
+icu_provider_blob = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 indexmap = { workspace = true }
 kamadak-exif = { workspace = true, optional = true }
@@ -77,8 +77,8 @@ xmlwriter = { workspace = true }
 typst-dev-assets = { workspace = true }
 
 [features]
-default = ["bibliography", "syntax-highlighting", "plugins", "raster-images", "regex", "pdf-images", "data-loading", "lorem", "svg"]
-bibliography = ["dep:hayagriva"]
+default = ["bibliography", "syntax-highlighting", "plugins", "raster-images", "regex", "pdf-images", "data-loading", "lorem", "svg", "icu-properties"]
+bibliography = ["dep:hayagriva", "data-loading"]
 syntax-highlighting = ["dep:syntect", "dep:two-face"]
 plugins = ["dep:wasmi"]
 raster-images = ["dep:image", "dep:kamadak-exif"]
@@ -87,6 +87,12 @@ pdf-images = ["dep:hayro-syntax"]
 data-loading = ["dep:csv", "dep:toml", "dep:serde_yaml", "dep:roxmltree"]
 lorem = ["dep:lipsum"]
 svg = ["dep:usvg", "dep:fontdb", "dep:roxmltree"]
+# ICU-based Unicode properties (default ignorable, combining classes). Disable for smaller WASM.
+icu-properties = [
+    "dep:icu_properties",
+    "dep:icu_provider",
+    "dep:icu_provider_blob",
+]
 
 [lints]
 workspace = true

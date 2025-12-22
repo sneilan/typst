@@ -3409,6 +3409,8 @@ version = "0.1.0"
 dependencies = [
  "typst",
  "typst-library",
+ "typst-svg",
+ "wasm-bindgen",
 ]
 
 [[package]]

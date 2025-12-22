@@ -205,10 +205,12 @@ impl Synthesize for Packed<RefElem> {
         styles: StyleChain,
     ) -> SourceResult<()> {
         let span = self.span();
+        #[cfg(feature = "bibliography")]
+        let citation = to_citation(self, engine, styles)?;
+
         let elem = self.as_mut();
         #[cfg(feature = "bibliography")]
         {
-            let citation = to_citation(self, engine, styles)?;
             elem.citation = Some(Some(citation.pack()));
         }
         #[cfg(not(feature = "bibliography"))]

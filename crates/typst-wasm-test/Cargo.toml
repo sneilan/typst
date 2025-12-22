@@ -3,9 +3,14 @@ name = "typst-wasm-test"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 typst = { path = "../typst", default-features = false }
-typst-library = { path = "../typst-library", default-features = false }
+typst-library = { path = "../typst-library", default-features = false, features = ["raster-images", "svg"] }
+typst-svg = { path = "../typst-svg", default-features = false, features = ["raster-images", "svg"] }
+wasm-bindgen = "0.2"

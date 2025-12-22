@@ -3,9 +3,13 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
+#[cfg(feature = "icu-properties")]
 use icu_properties::CanonicalCombiningClass;
+#[cfg(feature = "icu-properties")]
 use icu_properties::maps::CodePointMapData;
+#[cfg(feature = "icu-properties")]
 use icu_provider::AsDeserializingBufferProvider;
+#[cfg(feature = "icu-properties")]
 use icu_provider_blob::BlobDataProvider;
 
 use crate::engine::Engine;
@@ -108,7 +112,8 @@ impl Accent {
             .map(|(accent, _)| Self(accent))
     }
 
-    /// Whether this accent is a bottom accent or not.
+    /// Whether this accent is a bottom accent or not (ICU-based).
+    #[cfg(feature = "icu-properties")]
     pub fn is_bottom(&self) -> bool {
         if matches!(self.0, '⏟' | '⎵' | '⏝' | '⏡') {
             return true;
@@ -127,6 +132,71 @@ impl Accent {
         matches!(
             COMBINING_CLASS_DATA.as_borrowed().get(self.0),
             CanonicalCombiningClass::Below
+        )
+    }
+
+    /// Whether this accent is a bottom accent or not (hardcoded fallback).
+    ///
+    /// This uses a hardcoded list of common bottom combining characters
+    /// instead of the full ICU data.
+    #[cfg(not(feature = "icu-properties"))]
+    pub fn is_bottom(&self) -> bool {
+        // Special bottom accent characters
+        if matches!(self.0, '⏟' | '⎵' | '⏝' | '⏡') {
+            return true;
+        }
+
+        // Combining characters with Canonical Combining Class = Below (220)
+        // This is a subset of the most common ones used in math/typography
+        matches!(self.0,
+            // Common below combining marks
+            '\u{0316}' |  // COMBINING GRAVE ACCENT BELOW
+            '\u{0317}' |  // COMBINING ACUTE ACCENT BELOW
+            '\u{0318}' |  // COMBINING LEFT TACK BELOW
+            '\u{0319}' |  // COMBINING RIGHT TACK BELOW
+            '\u{031C}' |  // COMBINING LEFT HALF RING BELOW
+            '\u{031D}' |  // COMBINING UP TACK BELOW
+            '\u{031E}' |  // COMBINING DOWN TACK BELOW
+            '\u{031F}' |  // COMBINING PLUS SIGN BELOW
+            '\u{0320}' |  // COMBINING MINUS SIGN BELOW
+            '\u{0321}' |  // COMBINING PALATALIZED HOOK BELOW
+            '\u{0322}' |  // COMBINING RETROFLEX HOOK BELOW
+            '\u{0323}' |  // COMBINING DOT BELOW
+            '\u{0324}' |  // COMBINING DIAERESIS BELOW
+            '\u{0325}' |  // COMBINING RING BELOW
+            '\u{0326}' |  // COMBINING COMMA BELOW
+            '\u{0327}' |  // COMBINING CEDILLA
+            '\u{0328}' |  // COMBINING OGONEK
+            '\u{0329}' |  // COMBINING VERTICAL LINE BELOW
+            '\u{032A}' |  // COMBINING BRIDGE BELOW
+            '\u{032B}' |  // COMBINING INVERTED DOUBLE ARCH BELOW
+            '\u{032C}' |  // COMBINING CARON BELOW
+            '\u{032D}' |  // COMBINING CIRCUMFLEX ACCENT BELOW
+            '\u{032E}' |  // COMBINING BREVE BELOW
+            '\u{032F}' |  // COMBINING INVERTED BREVE BELOW
+            '\u{0330}' |  // COMBINING TILDE BELOW
+            '\u{0331}' |  // COMBINING MACRON BELOW
+            '\u{0332}' |  // COMBINING LOW LINE
+            '\u{0333}' |  // COMBINING DOUBLE LOW LINE
+            '\u{0339}' |  // COMBINING RIGHT HALF RING BELOW
+            '\u{033A}' |  // COMBINING INVERTED BRIDGE BELOW
+            '\u{033B}' |  // COMBINING SQUARE BELOW
+            '\u{033C}' |  // COMBINING SEAGULL BELOW
+            '\u{0345}' |  // COMBINING GREEK YPOGEGRAMMENI (iota subscript)
+            '\u{0347}' |  // COMBINING EQUALS SIGN BELOW
+            '\u{0348}' |  // COMBINING DOUBLE VERTICAL LINE BELOW
+            '\u{0349}' |  // COMBINING LEFT ANGLE BELOW
+            '\u{034D}' |  // COMBINING LEFT RIGHT ARROW BELOW
+            '\u{034E}' |  // COMBINING UPWARDS ARROW BELOW
+            '\u{0353}' |  // COMBINING X BELOW
+            '\u{0354}' |  // COMBINING LEFT ARROWHEAD BELOW
+            '\u{0355}' |  // COMBINING RIGHT ARROWHEAD BELOW
+            '\u{0356}' |  // COMBINING RIGHT ARROWHEAD AND UP ARROWHEAD BELOW
+            '\u{0359}' |  // COMBINING ASTERISK BELOW
+            '\u{035A}' |  // COMBINING DOUBLE RING BELOW
+            '\u{035C}' |  // COMBINING DOUBLE BREVE BELOW
+            '\u{035F}' |  // COMBINING DOUBLE MACRON BELOW
+            '\u{0362}'    // COMBINING DOUBLE RIGHTWARDS ARROW BELOW
         )
     }
 }
