@@ -61,32 +61,18 @@ Updated these crates to use `default-features = false` and propagate the bibliog
 - **`typst-realize/src/lib.rs`**: Wrapped CITES static, finish_cites function, and rule arrays
 - **`typst-html/src/rules.rs`**: Wrapped bibliography imports and rules
 
-## Build Commands
+## Build Command
 
-### Minimal Build (no bibliography, no syntax highlighting)
 ```bash
-cargo build --release --target wasm32-unknown-unknown -p typst --no-default-features
-```
-
-### Full Build
-```bash
-cargo build --release --target wasm32-unknown-unknown -p typst
-```
-
-### Test WASM Sizes
-```bash
-# Build minimal
-cargo build --release --target wasm32-unknown-unknown -p typst-wasm-test --no-default-features
-
-# Strip debug info
-wasm-tools strip --all target/wasm32-unknown-unknown/release/typst_wasm_test.wasm \
-  -o target/wasm32-unknown-unknown/release/typst_wasm_test_stripped.wasm
+cd crates/typst-wasm-test
+wasm-pack build --target web --release
+wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int pkg/typst_wasm_test_bg.wasm -o pkg/typst_wasm_test_bg.wasm
 
 # Compress with brotli
-brotli --best target/wasm32-unknown-unknown/release/typst_wasm_test_stripped.wasm
+brotli --best pkg/typst_wasm_test_bg.wasm
 
 # Check size
-ls -lh target/wasm32-unknown-unknown/release/typst_wasm_test_stripped.wasm.br
+ls -lh pkg/typst_wasm_test_bg.wasm pkg/typst_wasm_test_bg.wasm.br
 ```
 
 ## Potential Further Optimizations
