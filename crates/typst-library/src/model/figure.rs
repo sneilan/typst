@@ -20,6 +20,7 @@ use crate::layout::{
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Locale, TextElem};
+#[cfg(any(feature = "raster-images", feature = "svg", feature = "pdf-images"))]
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -340,7 +341,12 @@ impl Synthesize for Packed<FigureElem> {
             elem.body
                 .query_first_naive(&Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
-                .unwrap_or_else(|| FigureKind::Elem(ImageElem::ELEM))
+                .unwrap_or_else(|| {
+                    #[cfg(any(feature = "raster-images", feature = "svg", feature = "pdf-images"))]
+                    { FigureKind::Elem(ImageElem::ELEM) }
+                    #[cfg(not(any(feature = "raster-images", feature = "svg", feature = "pdf-images")))]
+                    { FigureKind::Name("figure".into()) }
+                })
         });
 
         // Resolve the supplement.

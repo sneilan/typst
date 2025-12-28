@@ -7,9 +7,9 @@ use typst_library::foundations::Bytes;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::text::color::colr_glyph_to_svg;
 use typst_library::text::{Font, TextItem};
-use typst_library::visualize::{
-    ExchangeFormat, FillRule, Image, Paint, RasterImage, RelativeTo,
-};
+use typst_library::visualize::{FillRule, Image, Paint, RelativeTo};
+#[cfg(feature = "raster-images")]
+use typst_library::visualize::{ExchangeFormat, RasterImage};
 use typst_utils::hash128;
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
@@ -42,10 +42,11 @@ impl SVGRenderer<'_> {
             let x_offset = x + glyph.x_offset.at(text.size).to_pt();
             let y_offset = y + glyph.y_offset.at(text.size).to_pt();
 
-            self.render_colr_glyph(text, id, x_offset, y_offset, scale)
-                .or_else(|| self.render_svg_glyph(text, id, x_offset, y_offset, scale))
-                .or_else(|| self.render_bitmap_glyph(text, id, x_offset, y_offset))
-                .or_else(|| {
+            let result = self.render_colr_glyph(text, id, x_offset, y_offset, scale)
+                .or_else(|| self.render_svg_glyph(text, id, x_offset, y_offset, scale));
+            #[cfg(feature = "raster-images")]
+            let result = result.or_else(|| self.render_bitmap_glyph(text, id, x_offset, y_offset));
+            result.or_else(|| {
                     self.render_outline_glyph(
                         state
                             .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
@@ -136,6 +137,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Render a glyph defined by a bitmap.
+    #[cfg(feature = "raster-images")]
     fn render_bitmap_glyph(
         &mut self,
         text: &TextItem,
@@ -301,6 +303,7 @@ fn convert_outline_glyph_to_path(
 }
 
 /// Convert a bitmap glyph to an encoded image URL.
+#[cfg(feature = "raster-images")]
 #[comemo::memoize]
 fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64, f64)> {
     let raster = font.ttf().glyph_raster_image(id, u16::MAX)?;

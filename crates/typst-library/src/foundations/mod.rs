@@ -24,6 +24,7 @@ mod int;
 mod label;
 mod module;
 mod none;
+#[cfg(feature = "plugins")]
 #[path = "plugin.rs"]
 mod plugin_;
 mod scope;
@@ -55,6 +56,7 @@ pub use self::int::*;
 pub use self::label::*;
 pub use self::module::*;
 pub use self::none::*;
+#[cfg(feature = "plugins")]
 pub use self::plugin_::*;
 pub use self::repr::Repr;
 pub use self::scope::*;
@@ -101,6 +103,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Args>();
     global.define_type::<Type>();
     global.define_type::<Module>();
+    #[cfg(feature = "regex")]
     global.define_type::<Regex>();
     global.define_type::<Selector>();
     global.define_type::<Datetime>();
@@ -112,6 +115,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
+    #[cfg(feature = "plugins")]
     global.define_func::<plugin>();
     if features.is_enabled(Feature::Html) {
         global.define_func::<target>();

@@ -2,13 +2,17 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{EcoString, eco_format};
+#[cfg(feature = "pdf-images")]
 use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
+#[cfg(feature = "raster-images")]
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
-use typst_library::visualize::{
-    ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
-};
+use typst_library::visualize::{Image, ImageKind, ImageScaling};
+#[cfg(feature = "raster-images")]
+use typst_library::visualize::{ExchangeFormat, RasterFormat};
+#[cfg(feature = "pdf-images")]
+use typst_library::visualize::PdfImage;
 
 use crate::{SVGRenderer, State, SvgMatrix};
 
@@ -54,8 +58,12 @@ pub fn convert_image_scaling(scaling: Smart<ImageScaling>) -> Option<&'static st
 /// `data:image/{format};base64,`.
 #[comemo::memoize]
 pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
-    let (mut buf, strbuf);
+    #[cfg(feature = "raster-images")]
+    let mut buf;
+    #[cfg(feature = "pdf-images")]
+    let strbuf;
     let (format, data): (&str, &[u8]) = match image.kind() {
+        #[cfg(feature = "raster-images")]
         ImageKind::Raster(raster) => match raster.format() {
             RasterFormat::Exchange(format) => (
                 match format {
@@ -76,7 +84,9 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
                 buf.as_slice()
             }),
         },
+        #[cfg(feature = "svg")]
         ImageKind::Svg(svg) => ("svg+xml", svg.data()),
+        #[cfg(feature = "pdf-images")]
         ImageKind::Pdf(pdf) => {
             strbuf = pdf_to_svg(pdf);
             ("svg+xml", strbuf.as_bytes())
@@ -90,6 +100,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
 }
 
 // Keep this in sync with `typst-png`!
+#[cfg(feature = "pdf-images")]
 fn pdf_to_svg(pdf: &PdfImage) -> String {
     let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
         let bytes = match font {

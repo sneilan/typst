@@ -6,6 +6,7 @@ mod font;
 mod item;
 mod lang;
 mod linebreak;
+#[cfg(feature = "lorem")]
 #[path = "lorem.rs"]
 mod lorem_;
 mod raw;
@@ -21,6 +22,7 @@ pub use self::font::*;
 pub use self::item::*;
 pub use self::lang::*;
 pub use self::linebreak::*;
+#[cfg(feature = "lorem")]
 pub use self::lorem_::*;
 pub use self::raw::*;
 pub use self::shift::*;
@@ -31,11 +33,15 @@ pub use self::space::*;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::str::FromStr;
+#[cfg(feature = "icu-properties")]
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
+#[cfg(feature = "icu-properties")]
 use icu_properties::sets::CodePointSetData;
+#[cfg(feature = "icu-properties")]
 use icu_provider::AsDeserializingBufferProvider;
+#[cfg(feature = "icu-properties")]
 use icu_provider_blob::BlobDataProvider;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
@@ -49,9 +55,11 @@ use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning}
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    NoneValue, Packed, PlainText, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
+#[cfg(feature = "regex")]
+use crate::foundations::Regex;
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
@@ -72,6 +80,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<RawElem>();
     global.define_func::<lower>();
     global.define_func::<upper>();
+    #[cfg(feature = "lorem")]
     global.define_func::<lorem>();
     global.reset_category();
 }
@@ -838,16 +847,25 @@ pub struct FontFamily {
     // The name of the font family
     name: EcoString,
     // A regex that defines the Unicode codepoints supported by the font.
+    #[cfg(feature = "regex")]
     covers: Option<Covers>,
 }
 
 impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self::with_coverage(string, None)
+        #[cfg(feature = "regex")]
+        {
+            Self::with_coverage(string, None)
+        }
+        #[cfg(not(feature = "regex"))]
+        {
+            Self { name: string.to_lowercase().into() }
+        }
     }
 
     /// Create a font family by name and optional Unicode coverage.
+    #[cfg(feature = "regex")]
     pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
         Self { name: string.to_lowercase().into(), covers }
     }
@@ -858,11 +876,19 @@ impl FontFamily {
     }
 
     /// The user-set coverage of the font family.
+    #[cfg(feature = "regex")]
     pub fn covers(&self) -> Option<&Regex> {
         self.covers.as_ref().map(|covers| covers.as_regex())
     }
+
+    /// The user-set coverage of the font family (always None when regex is disabled).
+    #[cfg(not(feature = "regex"))]
+    pub fn covers(&self) -> Option<&Never> {
+        None
+    }
 }
 
+#[cfg(feature = "regex")]
 cast! {
     FontFamily,
     self => match self.covers {
@@ -883,7 +909,20 @@ cast! {
     },
 }
 
+#[cfg(not(feature = "regex"))]
+cast! {
+    FontFamily,
+    self => self.name.into_value(),
+    string: EcoString => Self::new(&string),
+    mut v: Dict => {
+        let ret = Self::new(&v.take("name")?.cast::<EcoString>()?);
+        v.finish(&["name"])?;
+        ret
+    },
+}
+
 /// Defines which codepoints a font family will be used for.
+#[cfg(feature = "regex")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Covers {
     /// Covers all codepoints except those used both in Latin and CJK fonts.
@@ -892,6 +931,7 @@ pub enum Covers {
     Regex(Regex),
 }
 
+#[cfg(feature = "regex")]
 impl Covers {
     /// Retrieve the regex for the coverage.
     pub fn as_regex(&self) -> &Regex {
@@ -909,6 +949,7 @@ impl Covers {
     }
 }
 
+#[cfg(feature = "regex")]
 cast! {
     Covers,
     self => match self {
@@ -1501,7 +1542,8 @@ cast! {
     },
 }
 
-/// Whether a codepoint is Unicode `Default_Ignorable`.
+/// Whether a codepoint is Unicode `Default_Ignorable` (ICU-based).
+#[cfg(feature = "icu-properties")]
 pub fn is_default_ignorable(c: char) -> bool {
     /// The set of Unicode default ignorables.
     static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetData> = LazyLock::new(|| {
@@ -1513,6 +1555,38 @@ pub fn is_default_ignorable(c: char) -> bool {
         .unwrap()
     });
     DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
+}
+
+/// Whether a codepoint is Unicode `Default_Ignorable` (simple fallback).
+///
+/// This is a simplified check that covers the most common default ignorable
+/// characters without requiring the full ICU data.
+#[cfg(not(feature = "icu-properties"))]
+pub fn is_default_ignorable(c: char) -> bool {
+    // Common default ignorable characters used in text processing:
+    // - Zero-width characters
+    // - Format control characters
+    // - Variation selectors
+    matches!(c,
+        // Zero-width characters
+        '\u{200B}'..='\u{200F}' |  // ZWSP, ZWNJ, ZWJ, LRM, RLM
+        '\u{2028}'..='\u{202F}' |  // Line/paragraph separators, directional controls
+        '\u{2060}'..='\u{2064}' |  // Word joiner, invisible operators
+        '\u{2066}'..='\u{206F}' |  // Directional isolates
+        // Variation selectors
+        '\u{FE00}'..='\u{FE0F}' |  // VS1-VS16
+        '\u{E0100}'..='\u{E01EF}' | // VS17-VS256
+        // Other format controls
+        '\u{FEFF}' |               // BOM/ZWNBSP
+        '\u{00AD}' |               // Soft hyphen
+        '\u{034F}' |               // Combining grapheme joiner
+        '\u{061C}' |               // Arabic letter mark
+        '\u{115F}'..='\u{1160}' |  // Hangul fillers
+        '\u{17B4}'..='\u{17B5}' |  // Khmer vowel inherent
+        '\u{180B}'..='\u{180F}' |  // Mongolian free variation selectors
+        '\u{3164}' |               // Hangul filler
+        '\u{FFA0}'                 // Halfwidth Hangul filler
+    )
 }
 
 /// Checks for font families that are not available.

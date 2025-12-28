@@ -9,9 +9,11 @@ use typst_syntax::Span;
 use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
+    CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect,
     Repr, Str, StyleChain, Symbol, Type, Value, cast, func, repr, scope, ty,
 };
+#[cfg(feature = "regex")]
+use crate::foundations::Regex;
 use crate::introspection::{Locatable, Location, QueryUniqueIntrospection, Unqueriable};
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
@@ -83,6 +85,7 @@ pub enum Selector {
     /// Matches elements with a specific label.
     Label(Label),
     /// Matches text elements through a regular expression.
+    #[cfg(feature = "regex")]
     Regex(Regex),
     /// Matches elements with a specific capability.
     Can(TypeId),
@@ -98,6 +101,7 @@ pub enum Selector {
 
 impl Selector {
     /// Define a simple text selector.
+    #[cfg(feature = "regex")]
     pub fn text(text: &str) -> StrResult<Self> {
         if text.is_empty() {
             bail!("text selector is empty");
@@ -106,6 +110,7 @@ impl Selector {
     }
 
     /// Define a regex selector.
+    #[cfg(feature = "regex")]
     pub fn regex(regex: Regex) -> StrResult<Self> {
         if regex.as_str().is_empty() {
             bail!("regex selector is empty");
@@ -140,7 +145,9 @@ impl Selector {
             }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
-            Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
+            #[cfg(feature = "regex")]
+            Self::Regex(_) => false,
+            Self::Before { .. } | Self::After { .. } => false,
         }
     }
 }
@@ -248,6 +255,7 @@ impl Repr for Selector {
                 }
             }
             Self::Label(label) => label.repr(),
+            #[cfg(feature = "regex")]
             Self::Regex(regex) => regex.repr(),
             Self::Can(_) => eco_format!("selector(..)"),
             Self::Or(selectors) | Self::And(selectors) => {
@@ -277,6 +285,7 @@ impl Repr for Selector {
     }
 }
 
+#[cfg(feature = "regex")]
 cast! {
     type Selector,
     text: EcoString => Self::text(&text)?,
@@ -286,6 +295,17 @@ cast! {
         .select(),
     label: Label => Self::Label(label),
     regex: Regex => Self::regex(regex)?,
+    location: Location => Self::Location(location),
+}
+
+#[cfg(not(feature = "regex"))]
+cast! {
+    type Selector,
+    func: Func => func
+        .to_element()
+        .ok_or("only element functions can be used as selectors")?
+        .select(),
+    label: Label => Self::Label(label),
     location: Location => Self::Location(location),
 }
 
@@ -355,6 +375,7 @@ impl FromValue for LocatableSelector {
                 }
                 Selector::Location(_) => {}
                 Selector::Label(_) => {}
+                #[cfg(feature = "regex")]
                 Selector::Regex(_) => bail!("text is not locatable"),
                 Selector::Can(_) => bail!("capability is not locatable"),
                 Selector::Or(list) | Selector::And(list) => {
@@ -395,6 +416,7 @@ impl From<Location> for LocatableSelector {
 #[derive(Clone, PartialEq, Hash)]
 pub struct ShowableSelector(pub Selector);
 
+#[cfg(feature = "regex")]
 impl Reflect for ShowableSelector {
     fn input() -> CastInfo {
         CastInfo::Union(vec![
@@ -421,6 +443,29 @@ impl Reflect for ShowableSelector {
     }
 }
 
+#[cfg(not(feature = "regex"))]
+impl Reflect for ShowableSelector {
+    fn input() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type(Type::of::<Symbol>()),
+            CastInfo::Type(Type::of::<Label>()),
+            CastInfo::Type(Type::of::<Func>()),
+            CastInfo::Type(Type::of::<Selector>()),
+        ])
+    }
+
+    fn output() -> CastInfo {
+        CastInfo::Type(Type::of::<Selector>())
+    }
+
+    fn castable(value: &Value) -> bool {
+        Symbol::castable(value)
+            || Label::castable(value)
+            || Func::castable(value)
+            || Selector::castable(value)
+    }
+}
+
 cast! {
     ShowableSelector,
     self => self.0.into_value(),
@@ -428,6 +473,7 @@ cast! {
 
 impl FromValue for ShowableSelector {
     fn from_value(value: Value) -> HintedStrResult<Self> {
+        #[cfg(feature = "regex")]
         fn validate(selector: &Selector, nested: bool) -> HintedStrResult<()> {
             match selector {
                 Selector::Elem(_, _) => {}
@@ -440,6 +486,26 @@ impl FromValue for ShowableSelector {
                 }
                 Selector::Regex(_)
                 | Selector::Location(_)
+                | Selector::Can(_)
+                | Selector::Before { .. }
+                | Selector::After { .. } => {
+                    bail!("this selector cannot be used with show")
+                }
+            }
+            Ok(())
+        }
+
+        #[cfg(not(feature = "regex"))]
+        fn validate(selector: &Selector, _nested: bool) -> HintedStrResult<()> {
+            match selector {
+                Selector::Elem(_, _) => {}
+                Selector::Label(_) => {}
+                Selector::Or(list) | Selector::And(list) => {
+                    for selector in list {
+                        validate(selector, true)?;
+                    }
+                }
+                Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
                 | Selector::After { .. } => {

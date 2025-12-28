@@ -1,13 +1,19 @@
 //! Image handling.
 
+#[cfg(feature = "pdf-images")]
 mod pdf;
+#[cfg(feature = "raster-images")]
 mod raster;
+#[cfg(feature = "svg")]
 mod svg;
 
+#[cfg(feature = "pdf-images")]
 pub use self::pdf::PdfImage;
+#[cfg(feature = "raster-images")]
 pub use self::raster::{
     ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
 };
+#[cfg(feature = "svg")]
 pub use self::svg::SvgImage;
 
 use std::ffi::OsStr;
@@ -16,6 +22,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use ecow::EcoString;
+#[cfg(feature = "pdf-images")]
 use hayro_syntax::LoadPdfError;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, NonZeroExt};
@@ -31,6 +38,7 @@ use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::{LocalName, Locale, families};
+#[cfg(feature = "pdf-images")]
 use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.
@@ -280,6 +288,7 @@ impl Packed<ImageElem> {
 
         // Construct the image itself.
         let kind = match format {
+            #[cfg(feature = "raster-images")]
             ImageFormat::Raster(format) => ImageKind::Raster(
                 RasterImage::new(
                     loaded.data.clone(),
@@ -288,6 +297,7 @@ impl Packed<ImageElem> {
                 )
                 .at(span)?,
             ),
+            #[cfg(feature = "svg")]
             ImageFormat::Vector(VectorFormat::Svg) => {
                 // Warn the user if the image contains a foreign object. Not
                 // perfect because the svg could also be encoded, but that's an
@@ -318,6 +328,11 @@ impl Packed<ImageElem> {
                     .within(loaded)?,
                 )
             }
+            #[cfg(not(feature = "svg"))]
+            ImageFormat::Vector(VectorFormat::Svg) => {
+                bail!(span, "SVG support is not enabled in this build")
+            }
+            #[cfg(feature = "pdf-images")]
             ImageFormat::Vector(VectorFormat::Pdf) => {
                 let document = match PdfDocument::new(loaded.data.clone()) {
                     Ok(doc) => doc,
@@ -369,6 +384,13 @@ impl Packed<ImageElem> {
 
                 ImageKind::Pdf(pdf_image)
             }
+            #[cfg(not(feature = "pdf-images"))]
+            ImageFormat::Vector(VectorFormat::Pdf) => {
+                bail!(
+                    span,
+                    "PDF images are not supported in this build";
+                );
+            }
         };
 
         Ok(Image::new(kind, self.alt.get_cloned(styles), self.scaling.get(styles)))
@@ -393,7 +415,8 @@ impl Packed<ImageElem> {
 }
 
 /// Derive the image format from the file extension of a path.
-fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
+#[cfg(feature = "raster-images")]
+pub(crate) fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
     let ext = std::path::Path::new(path)
         .extension()
         .and_then(OsStr::to_str)
@@ -407,6 +430,23 @@ fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
         "gif" => Some(ExchangeFormat::Gif.into()),
         "webp" => Some(ExchangeFormat::Webp.into()),
         // Vector formats
+        "svg" | "svgz" => Some(VectorFormat::Svg.into()),
+        "pdf" => Some(VectorFormat::Pdf.into()),
+        _ => None,
+    }
+}
+
+/// Derive the image format from the file extension of a path.
+#[cfg(not(feature = "raster-images"))]
+pub(crate) fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase();
+
+    match ext.as_str() {
+        // Vector formats only
         "svg" | "svgz" => Some(VectorFormat::Svg.into()),
         "pdf" => Some(VectorFormat::Pdf.into()),
         _ => None,
@@ -489,8 +529,11 @@ impl Image {
     /// The format of the image.
     pub fn format(&self) -> ImageFormat {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.format().into(),
+            #[cfg(feature = "svg")]
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => VectorFormat::Pdf.into(),
         }
     }
@@ -498,8 +541,11 @@ impl Image {
     /// The width of the image in pixels.
     pub fn width(&self) -> f64 {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.width() as f64,
+            #[cfg(feature = "svg")]
             ImageKind::Svg(svg) => svg.width(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.width() as f64,
         }
     }
@@ -507,8 +553,11 @@ impl Image {
     /// The height of the image in pixels.
     pub fn height(&self) -> f64 {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.height() as f64,
+            #[cfg(feature = "svg")]
             ImageKind::Svg(svg) => svg.height(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.height() as f64,
         }
     }
@@ -516,8 +565,11 @@ impl Image {
     /// The image's pixel density in pixels per inch, if known.
     pub fn dpi(&self) -> Option<f64> {
         match &self.0.kind {
+            #[cfg(feature = "raster-images")]
             ImageKind::Raster(raster) => raster.dpi(),
+            #[cfg(feature = "svg")]
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => Some(Image::DEFAULT_DPI),
         }
     }
@@ -554,19 +606,24 @@ impl Debug for Image {
 #[derive(Clone, Hash)]
 pub enum ImageKind {
     /// A raster image.
+    #[cfg(feature = "raster-images")]
     Raster(RasterImage),
     /// An SVG image.
+    #[cfg(feature = "svg")]
     Svg(SvgImage),
     /// A PDF image.
+    #[cfg(feature = "pdf-images")]
     Pdf(PdfImage),
 }
 
+#[cfg(feature = "raster-images")]
 impl From<RasterImage> for ImageKind {
     fn from(image: RasterImage) -> Self {
         Self::Raster(image)
     }
 }
 
+#[cfg(feature = "svg")]
 impl From<SvgImage> for ImageKind {
     fn from(image: SvgImage) -> Self {
         Self::Svg(image)
@@ -577,11 +634,13 @@ impl From<SvgImage> for ImageKind {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ImageFormat {
     /// A raster graphics format.
+    #[cfg(feature = "raster-images")]
     Raster(RasterFormat),
     /// A vector graphics format.
     Vector(VectorFormat),
 }
 
+#[cfg(feature = "raster-images")]
 impl ImageFormat {
     /// Try to detect the format of an image from data.
     pub fn detect(data: &[u8]) -> Option<Self> {
@@ -589,6 +648,22 @@ impl ImageFormat {
             return Some(Self::Raster(RasterFormat::Exchange(format)));
         }
 
+        if is_svg(data) {
+            return Some(Self::Vector(VectorFormat::Svg));
+        }
+
+        if is_pdf(data) {
+            return Some(Self::Vector(VectorFormat::Pdf));
+        }
+
+        None
+    }
+}
+
+#[cfg(not(feature = "raster-images"))]
+impl ImageFormat {
+    /// Try to detect the format of an image from data.
+    pub fn detect(data: &[u8]) -> Option<Self> {
         if is_svg(data) {
             return Some(Self::Vector(VectorFormat::Svg));
         }
@@ -632,6 +707,7 @@ pub enum VectorFormat {
     Pdf,
 }
 
+#[cfg(feature = "raster-images")]
 impl<R> From<R> for ImageFormat
 where
     R: Into<RasterFormat>,
@@ -647,6 +723,7 @@ impl From<VectorFormat> for ImageFormat {
     }
 }
 
+#[cfg(feature = "raster-images")]
 cast! {
     ImageFormat,
     self => match self {
@@ -654,6 +731,15 @@ cast! {
         Self::Vector(v) => v.into_value(),
     },
     v: RasterFormat => Self::Raster(v),
+    v: VectorFormat => Self::Vector(v),
+}
+
+#[cfg(not(feature = "raster-images"))]
+cast! {
+    ImageFormat,
+    self => match self {
+        Self::Vector(v) => v.into_value(),
+    },
     v: VectorFormat => Self::Vector(v),
 }
 

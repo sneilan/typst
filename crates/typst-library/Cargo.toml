@@ -26,55 +26,73 @@ chinese-number = { workspace = true }
 ciborium = { workspace = true }
 codex = { workspace = true }
 comemo = { workspace = true }
-csv = { workspace = true }
+csv = { workspace = true, optional = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
-fontdb = { workspace = true }
+fontdb = { workspace = true, optional = true }
 glidesort = { workspace = true }
-hayagriva = { workspace = true }
-hayro-syntax = { workspace = true }
-icu_properties = { workspace = true }
-icu_provider = { workspace = true }
-icu_provider_blob = { workspace = true }
-image = { workspace = true }
+hayagriva = { workspace = true, optional = true }
+hayro-syntax = { workspace = true, optional = true }
+icu_properties = { workspace = true, optional = true }
+icu_provider = { workspace = true, optional = true }
+icu_provider_blob = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 indexmap = { workspace = true }
-kamadak-exif = { workspace = true }
+kamadak-exif = { workspace = true, optional = true }
 kurbo = { workspace = true }
-lipsum = { workspace = true }
+lipsum = { workspace = true, optional = true }
 memchr = { workspace = true }
 palette = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
 qcms = { workspace = true }
 rayon = { workspace = true }
-regex = { workspace = true }
-regex-syntax = { workspace = true }
-roxmltree = { workspace = true }
+regex = { workspace = true, optional = true }
+regex-syntax = { workspace = true, optional = true }
+roxmltree = { workspace = true, optional = true }
 rust_decimal = { workspace = true }
 rustc-hash = { workspace = true }
 rustybuzz = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = { workspace = true }
+serde_yaml = { workspace = true, optional = true }
 siphasher = { workspace = true }
 smallvec = { workspace = true }
-syntect = { workspace = true }
+syntect = { workspace = true, optional = true }
 time = { workspace = true }
-toml = { workspace = true }
+toml = { workspace = true, optional = true }
 ttf-parser = { workspace = true }
-two-face = { workspace = true }
+two-face = { workspace = true, optional = true }
 typed-arena = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
-usvg = { workspace = true }
+usvg = { workspace = true, optional = true }
 utf8_iter = { workspace = true }
-wasmi = { workspace = true }
+wasmi = { workspace = true, optional = true }
 xmlwriter = { workspace = true }
 
 [dev-dependencies]
 typst-dev-assets = { workspace = true }
+
+[features]
+default = ["bibliography", "syntax-highlighting", "plugins", "raster-images", "regex", "pdf-images", "data-loading", "lorem", "svg", "icu-properties"]
+bibliography = ["dep:hayagriva", "data-loading"]
+syntax-highlighting = ["dep:syntect", "dep:two-face"]
+plugins = ["dep:wasmi"]
+raster-images = ["dep:image", "dep:kamadak-exif"]
+regex = ["dep:regex", "dep:regex-syntax"]
+pdf-images = ["dep:hayro-syntax"]
+data-loading = ["dep:csv", "dep:toml", "dep:serde_yaml", "dep:roxmltree"]
+lorem = ["dep:lipsum"]
+svg = ["dep:usvg", "dep:fontdb", "dep:roxmltree"]
+# ICU-based Unicode properties (default ignorable, combining classes). Disable for smaller WASM.
+icu-properties = [
+    "dep:icu_properties",
+    "dep:icu_provider",
+    "dep:icu_provider_blob",
+]
 
 [lints]
 workspace = true

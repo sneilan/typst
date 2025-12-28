@@ -27,9 +27,11 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
+    DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
     ParElem, ParbreakElem, TermsElem,
 };
+#[cfg(feature = "bibliography")]
+use typst_library::model::{CiteElem, CiteGroup};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
@@ -166,6 +168,7 @@ enum ShowStep<'a> {
 }
 
 /// A match of a regex show rule.
+#[cfg(feature = "regex")]
 struct RegexMatch<'a> {
     /// The offset in the string that matched.
     offset: usize,
@@ -303,6 +306,7 @@ fn visit_kind_rules<'a>(
         // In normal realization, we apply regex show rules to consecutive
         // textual elements via `TEXTUAL` grouping. However, in math, this is
         // not desirable, so we just do it on a per-element basis.
+        #[cfg(feature = "regex")]
         if let Some(elem) = content.to_packed::<SymbolElem>() {
             if let Some(m) = find_regex_match_in_str(elem.text.as_str(), styles) {
                 visit_regex_match(s, &[(content, styles)], m)?;
@@ -920,21 +924,38 @@ fn to_tag<'a>((c, _): &Pair<'a>) -> Option<&'a Packed<TagElem>> {
 const MAX_GROUP_NESTING: usize = 3;
 
 /// Grouping rules used in layout realization.
+#[cfg(feature = "bibliography")]
 static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+#[cfg(not(feature = "bibliography"))]
+static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in paragraph layout realization.
+#[cfg(feature = "bibliography")]
 static LAYOUT_PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
+#[cfg(not(feature = "bibliography"))]
+static LAYOUT_PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in HTML root realization.
+#[cfg(feature = "bibliography")]
 static HTML_DOCUMENT_RULES: &[&GroupingRule] =
     &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+#[cfg(not(feature = "bibliography"))]
+static HTML_DOCUMENT_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &PAR, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in HTML fragment realization.
+#[cfg(feature = "bibliography")]
 static HTML_FRAGMENT_RULES: &[&GroupingRule] =
     &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+#[cfg(not(feature = "bibliography"))]
+static HTML_FRAGMENT_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &PAR, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in math realization.
+#[cfg(feature = "bibliography")]
 static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
+#[cfg(not(feature = "bibliography"))]
+static MATH_RULES: &[&GroupingRule] = &[&LIST, &ENUM, &TERMS];
 
 /// Groups adjacent textual elements for text show rule application.
 static TEXTUAL: GroupingRule = GroupingRule {
@@ -980,6 +1001,7 @@ static PAR: GroupingRule = GroupingRule {
 };
 
 /// Collects `CiteElem`s into `CiteGroup`s.
+#[cfg(feature = "bibliography")]
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
@@ -1090,6 +1112,7 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
 }
 
 /// Builds the `CiteGroup` from `CiteElem`s.
+#[cfg(feature = "bibliography")]
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();
@@ -1136,6 +1159,7 @@ fn finish_list_like<T: ListLike>(grouped: Grouped) -> SourceResult<()> {
 /// them.
 fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
     // Try to find a regex match in the grouped textual elements.
+    #[cfg(feature = "regex")]
     if let Some(m) = find_regex_match_in_elems(s, &s.sink[start..]) {
         collapse_spaces(&mut s.sink, start);
         let elems = s.store_slice(&s.sink[start..]);
@@ -1155,6 +1179,7 @@ fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
 /// to call `collapse_spaces` on every textual group, performing yet another
 /// linear pass. We only collapse the spaces elements themselves on the cold
 /// path where there is an actual match.
+#[cfg(feature = "regex")]
 fn find_regex_match_in_elems<'a>(
     s: &State,
     elems: &[Pair<'a>],
@@ -1213,6 +1238,7 @@ fn find_regex_match_in_elems<'a>(
 }
 
 /// Finds the leftmost regex match for this style chain in the given text.
+#[cfg(feature = "regex")]
 fn find_regex_match_in_str<'a>(
     text: &str,
     styles: StyleChain<'a>,
@@ -1273,6 +1299,7 @@ fn find_regex_match_in_str<'a>(
 /// This first revisits all elements before the match, potentially slicing up
 /// a text element, then the transformed match, and then the remaining elements
 /// after the match.
+#[cfg(feature = "regex")]
 fn visit_regex_match<'a>(
     s: &mut State<'a, '_, '_, '_>,
     elems: &[Pair<'a>],

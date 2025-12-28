@@ -44,12 +44,13 @@ use arrayvec::ArrayVec;
 use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
+#[cfg(feature = "html")]
 use typst_html::HtmlDocument;
 use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
+use typst_library::foundations::{Module, NativeRuleMap, Scope, StyleChain, Styles, Value};
 use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
@@ -284,6 +285,7 @@ impl Document for PagedDocument {
     }
 }
 
+#[cfg(feature = "html")]
 impl Document for HtmlDocument {
     fn info(&self) -> &DocumentInfo {
         &self.info
@@ -360,6 +362,7 @@ mod sealed {
         }
     }
 
+    #[cfg(feature = "html")]
     impl Sealed for HtmlDocument {
         fn target() -> Target {
             Target::Html
@@ -402,6 +405,7 @@ pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     rules: {
         let mut rules = NativeRuleMap::new();
         typst_layout::register(&mut rules);
+        #[cfg(feature = "html")]
         typst_html::register(&mut rules);
         rules
     },
@@ -409,6 +413,12 @@ pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
+    #[cfg(feature = "html")]
     html_module: typst_html::module,
+    #[cfg(not(feature = "html"))]
+    html_module: || Module::new("html", Scope::new()),
+    #[cfg(feature = "html")]
     html_span_filled: typst_html::html_span_filled,
+    #[cfg(not(feature = "html"))]
+    html_span_filled: |content, _color| content,
 });

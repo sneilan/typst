@@ -25,12 +25,12 @@ codex = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 either = { workspace = true }
-hypher = { workspace = true }
-icu_properties = { workspace = true }
-icu_provider = { workspace = true }
-icu_provider_adapters = { workspace = true }
-icu_provider_blob = { workspace = true }
-icu_segmenter = { workspace = true }
+hypher = { workspace = true, optional = true }
+icu_properties = { workspace = true, optional = true }
+icu_provider = { workspace = true, optional = true }
+icu_provider_adapters = { workspace = true, optional = true }
+icu_provider_blob = { workspace = true, optional = true }
+icu_segmenter = { workspace = true, optional = true }
 kurbo = { workspace = true }
 memchr = { workspace = true }
 rustc-hash = { workspace = true }
@@ -41,6 +41,21 @@ unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
+
+[features]
+default = ["bibliography", "regex", "hyphenation", "images", "icu-linebreak"]
+bibliography = ["typst-library/bibliography"]
+regex = ["typst-library/regex"]
+hyphenation = ["dep:hypher"]
+images = ["typst-library/raster-images", "typst-library/svg", "typst-library/pdf-images"]
+# ICU-based line breaking with full Unicode support. Disable for smaller WASM.
+icu-linebreak = [
+    "dep:icu_properties",
+    "dep:icu_provider",
+    "dep:icu_provider_adapters",
+    "dep:icu_provider_blob",
+    "dep:icu_segmenter",
+]
 
 [lints]
 workspace = true

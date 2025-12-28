@@ -22,13 +22,19 @@ base64 = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
-hayro = { workspace = true }
-hayro-svg = { workspace = true }
-image = { workspace = true }
+hayro = { workspace = true, optional = true }
+hayro-svg = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 rustc-hash = { workspace = true }
 ttf-parser = { workspace = true }
 xmlparser = { workspace = true }
 xmlwriter = { workspace = true }
+
+[features]
+default = ["raster-images", "pdf-images", "svg"]
+raster-images = ["dep:image", "typst-library/raster-images"]
+pdf-images = ["dep:hayro", "dep:hayro-svg", "typst-library/pdf-images"]
+svg = ["typst-library/svg"]
 
 [lints]
 workspace = true

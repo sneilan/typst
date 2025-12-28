@@ -1,6 +1,8 @@
 //! Structuring elements that define the document model.
 
+#[cfg(feature = "bibliography")]
 mod bibliography;
+#[cfg(feature = "bibliography")]
 mod cite;
 mod document;
 mod emph;
@@ -22,7 +24,9 @@ mod table;
 mod terms;
 mod title;
 
+#[cfg(feature = "bibliography")]
 pub use self::bibliography::*;
+#[cfg(feature = "bibliography")]
 pub use self::cite::*;
 pub use self::document::*;
 pub use self::emph::*;
@@ -63,7 +67,9 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<FootnoteElem>();
     global.define_elem::<OutlineElem>();
     global.define_elem::<RefElem>();
+    #[cfg(feature = "bibliography")]
     global.define_elem::<CiteElem>();
+    #[cfg(feature = "bibliography")]
     global.define_elem::<BibliographyElem>();
     global.define_elem::<TableElem>();
     global.define_func::<numbering>();

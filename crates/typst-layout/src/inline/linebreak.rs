@@ -2,16 +2,24 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
+#[cfg(feature = "icu-linebreak")]
 use icu_properties::LineBreak;
+#[cfg(feature = "icu-linebreak")]
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
+#[cfg(feature = "icu-linebreak")]
 use icu_provider::AsDeserializingBufferProvider;
+#[cfg(feature = "icu-linebreak")]
 use icu_provider_adapters::fork::ForkByKeyProvider;
+#[cfg(feature = "icu-linebreak")]
 use icu_provider_blob::BlobDataProvider;
+#[cfg(feature = "icu-linebreak")]
 use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{Lang, TextElem};
+#[cfg(feature = "icu-linebreak")]
+use typst_library::text::Lang;
+use typst_library::text::TextElem;
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -35,15 +43,18 @@ const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
 
 /// The ICU blob data.
+#[cfg(feature = "icu-linebreak")]
 fn blob() -> BlobDataProvider {
     BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap()
 }
 
 /// The general line break segmenter.
+#[cfg(feature = "icu-linebreak")]
 static SEGMENTER: LazyLock<LineSegmenter> =
     LazyLock::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
 
 /// The line break segmenter for Chinese/Japanese text.
+#[cfg(feature = "icu-linebreak")]
 static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
     let cj_blob =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU_CJ_SEGMENT)
@@ -53,6 +64,7 @@ static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
 });
 
 /// The Unicode line break properties for each code point.
+#[cfg(feature = "icu-linebreak")]
 static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| {
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
@@ -74,6 +86,7 @@ pub enum Breakpoint {
 
 impl Breakpoint {
     /// Trim a line before this breakpoint.
+    #[cfg(feature = "icu-linebreak")]
     pub fn trim(self, start: usize, line: &str) -> Trim {
         match self {
             // Trailing whitespace should be shaped, but the glyphs should have
@@ -103,6 +116,34 @@ impl Breakpoint {
                             | LineBreak::LineFeed
                             | LineBreak::NextLine
                     )
+                });
+                Trim::uniform(start + trimmed.len())
+            }
+
+            // Trim nothing.
+            Self::Hyphen(..) => Trim::uniform(start + line.len()),
+        }
+    }
+
+    /// Trim a line before this breakpoint (simple fallback without ICU).
+    #[cfg(not(feature = "icu-linebreak"))]
+    pub fn trim(self, start: usize, line: &str) -> Trim {
+        match self {
+            // Trailing whitespace should be shaped, but the glyphs should have
+            // their advance width zeroed.
+            Self::Normal => {
+                let trimmed =
+                    line.trim_end_matches(|c: char| c.is_whitespace() || c == ZWS);
+                Trim {
+                    layout: start + trimmed.len(),
+                    shaping: start + line.len(),
+                }
+            }
+
+            // Trim linebreaks using simple character matching.
+            Self::Mandatory => {
+                let trimmed = line.trim_end_matches(|c| {
+                    matches!(c, '\n' | '\r' | '\u{0085}' | '\u{000B}' | '\u{000C}')
                 });
                 Trim::uniform(start + trimmed.len())
             }
@@ -680,6 +721,7 @@ fn raw_cost(
 /// This is an internal instead of an external iterator because it makes the
 /// code much simpler and the consumers of this function don't need the
 /// composability and flexibility of external iteration anyway.
+#[cfg(feature = "icu-linebreak")]
 fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
     let text = p.text;
 
@@ -772,7 +814,51 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
     }
 }
 
-/// Generate breakpoints for hyphenations within a word.
+/// Simple line breaking fallback without ICU.
+///
+/// Breaks lines at:
+/// - Whitespace (spaces, tabs)
+/// - After hyphens and dashes
+/// - At explicit newlines
+/// - At the end of text
+#[cfg(not(feature = "icu-linebreak"))]
+fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
+    let text = p.text;
+
+    // Single breakpoint at the end for empty text.
+    if text.is_empty() {
+        f(0, Breakpoint::Mandatory);
+        return;
+    }
+
+    let mut last = 0;
+
+    for (i, c) in text.char_indices() {
+        let next_idx = i + c.len_utf8();
+
+        // Check for mandatory breaks (newlines).
+        if matches!(c, '\n' | '\r' | '\u{0085}' | '\u{000B}' | '\u{000C}') {
+            f(next_idx, Breakpoint::Mandatory);
+            last = next_idx;
+            continue;
+        }
+
+        // Check for normal break opportunities.
+        // Break after whitespace or hyphens/dashes.
+        if c.is_whitespace() || matches!(c, '-' | '\u{2010}' | '\u{2011}' | '\u{2012}' | '\u{2013}' | '\u{2014}') {
+            f(next_idx, Breakpoint::Normal);
+            last = next_idx;
+        }
+    }
+
+    // Always emit a mandatory breakpoint at the end of text.
+    if last != text.len() {
+        f(text.len(), Breakpoint::Mandatory);
+    }
+}
+
+/// Generate breakpoints for hyphenations within a word (with ICU support).
+#[cfg(all(feature = "hyphenation", feature = "icu-linebreak"))]
 fn hyphenations(
     p: &Preparation,
     lb: &CodePointMapDataBorrowed<LineBreak>,
@@ -815,6 +901,18 @@ fn hyphenations(
         // Call `f` for the word-internal hyphenation opportunity.
         f(offset, Breakpoint::Hyphen(l, r));
     }
+}
+
+/// No-op version when hyphenation is disabled (with ICU).
+#[cfg(all(not(feature = "hyphenation"), feature = "icu-linebreak"))]
+fn hyphenations(
+    _p: &Preparation,
+    _lb: &CodePointMapDataBorrowed<LineBreak>,
+    _offset: usize,
+    _word: &str,
+    _f: impl FnMut(usize, Breakpoint),
+) {
+    // Hyphenation is disabled
 }
 
 /// Produce linebreak opportunities for a link.
@@ -876,6 +974,7 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 }
 
 /// Whether hyphenation is enabled at the given offset.
+#[cfg(all(feature = "hyphenation", feature = "icu-linebreak"))]
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.config.hyphenate.unwrap_or_else(|| {
         let (_, item) = p.get(offset);
@@ -889,6 +988,7 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
 }
 
 /// The text language at the given offset.
+#[cfg(all(feature = "hyphenation", feature = "icu-linebreak"))]
 fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);
